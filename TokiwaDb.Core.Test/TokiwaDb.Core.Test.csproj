@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Utilities\PersistentBTreeTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TokiwaDb.Core\TokiwaDb.Core.csproj">
