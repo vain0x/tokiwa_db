@@ -64,10 +64,12 @@ module Types =
     abstract member RecordPointers: seq<RecordPointer>
 
     abstract member Filter: (RecordPointer -> bool) -> IRelation
-    abstract member Projection: Set<Name> -> IRelation
+    abstract member Projection: array<Name> -> IRelation
     abstract member Rename: Map<Name, Name> -> IRelation
     abstract member Extend: array<Field> * (RecordPointer -> RecordPointer) -> IRelation
     abstract member JoinOn: array<Name> * array<Name> * IRelation -> IRelation
+
+    abstract member ToTuple: unit -> array<Field> * array<RecordPointer>
 
   type ITable =
     abstract member Name: Name

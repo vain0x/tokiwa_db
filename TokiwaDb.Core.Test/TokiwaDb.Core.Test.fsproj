@@ -49,6 +49,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Util.fs" />
+    <Compile Include="UtilTest.fs" />
     <Compile Include="FuncsTest.fs" />
     <Compile Include="StorageTest.fs" />
     <Compile Include="RelationTest.fs" />

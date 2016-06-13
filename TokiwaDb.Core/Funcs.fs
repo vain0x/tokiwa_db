@@ -6,10 +6,10 @@ open System.IO
 module Extensions =
   type Storage with  
     member this.Derefer(recordPtr: RecordPointer): Record =
-      recordPtr |> Map.map (fun field valuePtr -> this.Derefer(valuePtr))
+      recordPtr |> Array.map (fun valuePtr -> this.Derefer(valuePtr))
 
     member this.Store(record: Record): RecordPointer =
-      record |> Map.map (fun field value -> this.Store(value))
+      record |> Array.map (fun value -> this.Store(value))
 
 module Int64 =
   let toByteArray n =

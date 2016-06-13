@@ -16,22 +16,42 @@ type StreamSourceStorage(_src: IStreamSource) =
     let bytes = n |> Int64.toByteArray
     in stream.Write(bytes, 0, bytes.Length)
 
-  member this.ReadData(p: pointer) =
-    use stream    = _src.OpenRead()
-    let _         = stream.Seek(p, SeekOrigin.Begin)
+  /// Reads the data written at the current position.
+  /// Advances the position by the number of bytes read.
+  member this.ReadData(stream: Stream) =
     let len       = this.ReadInt64(stream)
     assert (len <= (1L <<< 31))
     let data      = Array.zeroCreate (int len)  // TODO: Support "long" array.
     let _         = stream.Read(data, 0, int len)
     in data
 
+  member this.ReadData(p) =
+    use stream    = _src.OpenRead()
+    let _         = stream.Seek(p, SeekOrigin.Begin)
+    in this.ReadData(stream)
+
+  member this.ToSeq() =
+    let stream      = _src.OpenRead()
+    seq {
+      while stream.Position < stream.Length do
+        yield (stream.Position, this.ReadData(stream))
+    }
+
+  member this.TryFindData(data: array<byte>) =
+    this.ToSeq()
+    |> Seq.tryFind (fun (p, data') -> data = data')
+    |> Option.map fst
+
   member this.WriteData(data: array<byte>): pointer =
-    use stream    = _src.OpenAppend()
-    let p         = stream.Position
-    let length    = 8L + data.LongLength
-    let ()        = this.WriteInt64(stream, data.LongLength)
-    let ()        = stream.Write(data, 0, data.Length)
-    in p
+    match this.TryFindData(data) with
+    | Some p -> p
+    | None ->
+      use stream    = _src.OpenAppend()
+      let p         = stream.Position
+      let length    = 8L + data.LongLength
+      let ()        = this.WriteInt64(stream, data.LongLength)
+      let ()        = stream.Write(data, 0, data.Length)
+      in p
 
   member this.ReadString(p: pointer) =
     UTF8Encoding.UTF8.GetString(this.ReadData(p))
@@ -61,12 +81,18 @@ type MemoryStorage() =
 
   let _dict = Dictionary<int64, Value>()
 
+  let _rev = Dictionary<Value, int64>()
+
   let _lookup p = _dict.Item(p)
 
   let _add value =
-    let k     = _dict.Count |> int64
-    let ()    = _dict.Add(k, value)
-    in k
+    match _rev.TryGetValue(value) with
+    | (true, p) -> p
+    | (false, _) ->
+      let k     = _dict.Count |> int64
+      let ()    = _dict.Add(k, value)
+      let ()    = _rev.Add(value, k)
+      in k
 
   override this.Derefer(valuePtr): Value =
     match valuePtr with
