@@ -1,5 +1,6 @@
 ﻿namespace TokiwaDb.Core
 
+open System.Collections.Generic
 open System.IO
 open System.Text
 
@@ -58,3 +59,31 @@ type StorageFile(_file: FileInfo) =
     | Float x     -> PFloat x
     | Time x      -> PTime x
     | String s    -> this.WriteString(s) |> PString
+
+type MemoryStorage() =
+  inherit Storage()
+
+  let _dict = Dictionary<int64, Value>()
+
+  let _lookup p = _dict.Item(p)
+
+  let _add value =
+    let k     = _dict.Count |> int64
+    let ()    = _dict.Add(k, value)
+    in k
+
+  override this.Derefer(valuePtr): Value =
+    match valuePtr with
+    | PInt x       -> Int x
+    | PFloat x     -> Float x
+    | PTime x      -> Time x
+    | PString p
+      -> _lookup p
+
+  override this.Store(value) =
+    match value with
+    | Int x       -> PInt x
+    | Float x     -> PFloat x
+    | Time x      -> PTime x
+    | String _
+      -> _add value |> PString

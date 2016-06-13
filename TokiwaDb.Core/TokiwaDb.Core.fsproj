@@ -44,8 +44,8 @@
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="Funcs.fs" />
-    <Compile Include="StorageFile.fs" />
-    <Compile Include="RelationFile.fs" />
+    <Compile Include="Storage.fs" />
+    <Compile Include="TableFile.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
