@@ -14,22 +14,21 @@ module Types =
 
   type Value =
     | Int           of int64
-    | Double        of double
+    | Float         of double
     | String        of string
     | Time          of DateTime
 
   type ValuePointer =
-    | Int           of int64
-    | Double        of double
-    | String        of pointer
-    | Time          of DateTime
+    | PInt           of int64
+    | PFloat         of double
+    | PString        of pointer
+    | PTime          of DateTime
 
-  [<RequireQualifiedAccess>]
   type ValueType =
-    | Int
-    | Double
-    | String
-    | Time
+    | TInt
+    | TFloat
+    | TString
+    | TTime
 
   type Field =
     | Field         of Name * ValueType
@@ -53,17 +52,16 @@ module Types =
     Map<Field, ValuePointer>
 
   [<AbstractClass>]
-  type Storage =
+  type Storage() =
     abstract member Derefer: ValuePointer -> Value
     abstract member Store: Value -> ValuePointer
 
   type IRelation =
     abstract member Name: string
-    abstract member Schema: array<Field>
+    abstract member Type: array<Field>
 
     abstract member FindById: Id -> option<Record>
     abstract member RecordPointers: seq<RecordPointer>
-    abstract member Records: IStorage -> seq<Record>
 
     abstract member JoinOn: IRelation * array<Field> * array<Field> -> IRelation
     abstract member Projection: array<Field> -> IRelation
@@ -75,4 +73,4 @@ module Types =
 
   type IDatabase =
     abstract member Name: string
-    abstract member TableSet: Map<Name, ITable>
+    abstract member Tables: ITable

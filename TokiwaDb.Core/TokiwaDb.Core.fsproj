@@ -45,7 +45,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="Funcs.fs" />
     <Compile Include="StorageFile.fs" />
-    <Compile Include="RecordFile.fs" />
+    <Compile Include="RelationFile.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
