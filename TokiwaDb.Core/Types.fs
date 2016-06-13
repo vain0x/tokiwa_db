@@ -10,6 +10,10 @@ module Types =
   /// Identity number.
   type Id = int64
 
+  /// A version number of database.
+  /// The initial value is 0.
+  type RevId = int64
+
   type Name = string
 
   type Value =
@@ -40,16 +44,15 @@ module Types =
 
   type Schema =
     {
-      Name          : string
       KeyFields     : KeyFields
       NonkeyFields  : array<Field>
     }
 
   type Record =
-    Map<Field, Value>
+    array<Value>
 
   type RecordPointer =
-    Map<Field, ValuePointer>
+    array<ValuePointer>
 
   [<AbstractClass>]
   type Storage() =
@@ -57,17 +60,17 @@ module Types =
     abstract member Store: Value -> ValuePointer
 
   type IRelation =
-    abstract member Name: string
-    abstract member Type: array<Field>
-
-    abstract member FindById: Id -> option<Record>
+    abstract member Fields: array<Field>
     abstract member RecordPointers: seq<RecordPointer>
 
-    abstract member JoinOn: IRelation * array<Field> * array<Field> -> IRelation
-    abstract member Projection: array<Field> -> IRelation
-    abstract member Extend: (RecordPointer -> array<Field * Value>) -> IRelation
+    abstract member Filter: (RecordPointer -> bool) -> IRelation
+    abstract member Projection: Set<Name> -> IRelation
+    abstract member Rename: Map<Name, Name> -> IRelation
+    abstract member Extend: array<Field> * (RecordPointer -> RecordPointer) -> IRelation
+    abstract member JoinOn: array<Name> * array<Name> * IRelation -> IRelation
 
   type ITable =
+    abstract member Name: Name
     abstract member Schema: Schema
     abstract member Relation: IRelation
 

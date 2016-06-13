@@ -4,27 +4,20 @@ open System.Collections.Generic
 open System.IO
 open System.Text
 
-type StorageFile(_file: FileInfo) =
+type StreamSourceStorage(_src: IStreamSource) =
   inherit Storage()
 
-  let createIfNotExists () =
-    if not _file.Exists then
-      use stream = _file.Create()
-      in ()
-
-  do createIfNotExists ()
-
-  member this.ReadInt64(stream: FileStream) =
+  member this.ReadInt64(stream: Stream) =
     let bytes = Array.zeroCreate 8
     let _ = stream.Read(bytes, 0, bytes.Length)
     in bytes |> Int64.ofByteArray
 
-  member this.WriteInt64(stream: FileStream, n: int64) =
+  member this.WriteInt64(stream: Stream, n: int64) =
     let bytes = n |> Int64.toByteArray
     in stream.Write(bytes, 0, bytes.Length)
 
   member this.ReadData(p: pointer) =
-    use stream    = _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+    use stream    = _src.OpenRead()
     let _         = stream.Seek(p, SeekOrigin.Begin)
     let len       = this.ReadInt64(stream)
     assert (len <= (1L <<< 31))
@@ -33,7 +26,7 @@ type StorageFile(_file: FileInfo) =
     in data
 
   member this.WriteData(data: array<byte>): pointer =
-    use stream    = _file.Open(FileMode.Append, FileAccess.Write)
+    use stream    = _src.OpenAppend()
     let p         = stream.Position
     let length    = 8L + data.LongLength
     let ()        = this.WriteInt64(stream, data.LongLength)
@@ -59,6 +52,9 @@ type StorageFile(_file: FileInfo) =
     | Float x     -> PFloat x
     | Time x      -> PTime x
     | String s    -> this.WriteString(s) |> PString
+
+type FileStorage(_file: FileInfo) =
+  inherit StreamSourceStorage(WriteOnceFileStreamSource(_file))
 
 type MemoryStorage() =
   inherit Storage()

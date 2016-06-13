@@ -49,10 +49,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
     <Compile Include="FuncsTest.fs" />
     <Compile Include="StorageTest.fs" />
-    <Compile Include="TableFileTest.fs" />
+    <Compile Include="RelationTest.fs" />
     <Compile Include="BasicTest.fs" />
   </ItemGroup>
   <PropertyGroup>
