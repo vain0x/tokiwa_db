@@ -4,6 +4,8 @@ open System
 open System.IO
 
 type StreamTable(_name: Name, _schema: Schema, _recordPointersSource: IStreamSource) =
+  let syncRoot = new obj()
+
   let _fields =
     _schema |> Schema.toFields
 
@@ -31,6 +33,13 @@ type StreamTable(_name: Name, _schema: Schema, _recordPointersSource: IStreamSou
     stream |> Stream.writeInt64 Mortal.maxLifeSpan
     for valuePointer in recordPointer do
       stream |> Stream.writeInt64 (valuePointer |> ValuePointer.toUntyped)
+
+  /// Set to `t` the end of lifespan of the record written at the current position.
+  /// Advances the position to the next record.
+  let _kill t (stream: Stream) =
+    stream.Seek(8L, SeekOrigin.Current) |> ignore
+    stream |> Stream.writeInt64 t
+    stream.Seek(_recordLength - 16L, SeekOrigin.Current) |> ignore
 
   let _allRecordPointers () =
     seq {
@@ -62,9 +71,19 @@ type StreamTable(_name: Name, _schema: Schema, _recordPointersSource: IStreamSou
         | _ -> recordPointer
       /// TODO: Runtime type validation.
       assert (recordPointer.Length = _fields.Length)
-      use stream    = _recordPointersSource.OpenAppend()
-      let ()        = stream |> _writeRecordPointer rs.Current recordPointer
-      in rs.Next() |> ignore
+      lock syncRoot (fun () ->
+        let _         = rs.Next()
+        use stream    = _recordPointersSource.OpenAppend()
+        in stream |> _writeRecordPointer rs.Current recordPointer
+        )
 
     override this.Delete(rs: IRevisionServer, pred: RecordPointer -> bool) =
-      ()
+      lock syncRoot (fun () ->
+        let _         = rs.Next() |> ignore
+        use stream    = _recordPointersSource.OpenReadWrite()
+        while stream.Position < stream.Length do
+          let record = stream |> _readRecordPointer
+          if (record |> Mortal.isAliveAt rs.Current) && (record.Value |> pred) then
+            stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+            stream |> _kill rs.Current
+        )

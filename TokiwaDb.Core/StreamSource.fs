@@ -3,14 +3,22 @@
 open System.IO
 
 type IStreamSource =
+  abstract member OpenReadWrite: unit -> Stream
   abstract member OpenRead: unit -> Stream
   abstract member OpenAppend: unit -> Stream
   abstract member Length: int64
 
 type WriteOnceFileStreamSource(_file: FileInfo) =
   interface IStreamSource with
-    override this.OpenRead() = _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite) :> Stream
-    override this.OpenAppend() = _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
+    override this.OpenReadWrite() =
+      _file.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite) :> Stream
+
+    override this.OpenRead() =
+      _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite) :> Stream
+
+    override this.OpenAppend() =
+      _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
+
     override this.Length = _file.Length
 
 type MemoryStreamSource(_buffer: array<byte>) =
@@ -32,8 +40,11 @@ type MemoryStreamSource(_buffer: array<byte>) =
     in stream
 
   interface IStreamSource with
-    override this.OpenRead() =
+    override this.OpenReadWrite() =
       this.Open(index = 0L) :> Stream
+
+    override this.OpenRead() =
+      (this :> IStreamSource).OpenReadWrite()
 
     override this.OpenAppend() =
       this.Open(index = _buffer.LongLength) :> Stream
