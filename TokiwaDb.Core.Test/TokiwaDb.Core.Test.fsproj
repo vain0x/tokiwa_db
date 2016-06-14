@@ -52,8 +52,10 @@
     <Compile Include="Util.fs" />
     <Compile Include="UtilTest.fs" />
     <Compile Include="FuncsTest.fs" />
+    <Compile Include="StreamSourceTest.fs" />
     <Compile Include="StorageTest.fs" />
     <Compile Include="RelationTest.fs" />
+    <Compile Include="TableTest.fs" />
     <Compile Include="BasicTest.fs" />
   </ItemGroup>
   <PropertyGroup>

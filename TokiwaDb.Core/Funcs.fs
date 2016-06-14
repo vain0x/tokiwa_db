@@ -2,18 +2,10 @@
 
 open System
 open System.IO
-
-[<AutoOpen>]
-module Extensions =
-  type Storage with  
-    member this.Derefer(recordPtr: RecordPointer): Record =
-      recordPtr |> Array.map (fun valuePtr -> this.Derefer(valuePtr))
-
-    member this.Store(record: Record): RecordPointer =
-      record |> Array.map (fun value -> this.Store(value))
+open FsYaml
 
 module ValuePointer =
-  let ofUntyped (Field (_, type')) (p: int64) =
+  let ofUntyped type' (p: int64) =
     match type' with
     | TInt      -> PInt p
     | TFloat    -> PFloat (BitConverter.Int64BitsToDouble p)
@@ -36,11 +28,20 @@ module Schema =
     in
       Array.append keyFields schema.NonkeyFields
 
+  let readFromStream (stream: Stream) =
+    stream |> Stream.readToEnd |> Yaml.load<Schema>
+
+  let writeToStream (stream: Stream) schema =
+    stream |> Stream.writeString (schema |> Yaml.dump<Schema>)
+
 module Mortal =
+  let maxLifeSpan =
+    Int64.MaxValue
+
   let create t value =
     {
       Begin     = t
-      End       = Int64.MaxValue
+      End       = maxLifeSpan
       Value     = value
     }
 
@@ -52,36 +53,16 @@ module Mortal =
     then { mortal with End = t }
     else mortal
 
-type IStreamSource =
-  abstract member OpenRead: unit -> Stream
-  abstract member OpenAppend: unit -> Stream
+type RevisionServer(_id: RevisionId) =
+  let mutable _id = _id
 
-type WriteOnceFileStreamSource(_file: FileInfo) =
-  interface IStreamSource with
-    override this.OpenRead() = _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite) :> Stream
-    override this.OpenAppend() = _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
+  new() =
+    RevisionServer(0L)
 
-type MemoryStreamSource(_buffer: array<byte>) =
-  inherit MemoryStream()
+  interface IRevisionServer with
+    override this.Current =
+      _id
 
-  let mutable _buffer = _buffer
-
-  new() = new MemoryStreamSource([||])
-
-  member private this.Open(index) =
-    let stream =
-      { new MemoryStream() with
-          override this.Close() =
-            _buffer <- this.ToArray()
-            base.Close()
-      }
-    let ()    = stream.Write(_buffer, 0, _buffer.Length)
-    let _     = stream.Seek(index, SeekOrigin.Begin)
-    in stream
-
-  interface IStreamSource with
-    override this.OpenRead() =
-      this.Open(index = 0L) :> Stream
-
-    override this.OpenAppend() =
-      this.Open(index = _buffer.LongLength) :> Stream
+    override this.Next() =
+      _id <- _id + 1L
+      _id

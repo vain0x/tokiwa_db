@@ -54,8 +54,7 @@ module Types =
   type RecordPointer =
     array<ValuePointer>
 
-  [<AbstractClass>]
-  type Storage() =
+  type IStorage =
     abstract member Derefer: ValuePointer -> Value
     abstract member Store: Value -> ValuePointer
 
@@ -78,11 +77,19 @@ module Types =
       Value: 'x
     }
 
+  type IRevisionServer =
+    abstract member Current: RevisionId
+    abstract member Next: unit -> RevisionId
+
   type ITable =
     abstract member Name: Name
     abstract member Schema: Schema
     abstract member Relation: RevisionId -> IRelation
 
+    abstract member Insert: IRevisionServer * RecordPointer -> unit
+    abstract member Delete: IRevisionServer * (RecordPointer -> bool) -> unit
+
   type IDatabase =
     abstract member Name: string
     abstract member Tables: ITable
+    abstract member RevisionServer: IRevisionServer

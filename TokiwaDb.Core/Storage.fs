@@ -4,6 +4,21 @@ open System.Collections.Generic
 open System.IO
 open System.Text
 
+[<AbstractClass>]
+type Storage() =
+  abstract member Derefer: ValuePointer -> Value
+  abstract member Store: Value -> ValuePointer
+
+  member this.Derefer(recordPtr: RecordPointer): Record =
+    recordPtr |> Array.map (fun valuePtr -> this.Derefer(valuePtr))
+
+  member this.Store(record: Record): RecordPointer =
+    record |> Array.map (fun value -> this.Store(value))
+
+  interface IStorage with
+    override this.Derefer(valuePointer) = this.Derefer(valuePointer)
+    override this.Store(value) = this.Store(value)
+
 type StreamSourceStorage(_src: IStreamSource) =
   inherit Storage()
 
@@ -11,9 +26,11 @@ type StreamSourceStorage(_src: IStreamSource) =
   /// Advances the position by the number of bytes read.
   member this.ReadData(stream: Stream) =
     let len       = stream |> Stream.readInt64
+    // TODO: Support "long" array.
     assert (len <= (1L <<< 31))
-    let data      = Array.zeroCreate (int len)  // TODO: Support "long" array.
-    let _         = stream.Read(data, 0, int len)
+    let len       = int len
+    let data      = Array.zeroCreate len
+    let _         = stream.Read(data, 0, len)
     in data
 
   member this.ReadData(p) =

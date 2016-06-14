@@ -5,52 +5,56 @@ open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
 module RelationTest =
-  let storage = MemoryStorage()
+  /// NOTE: This is also used in TableTest.fs.
+  module TestData =
+    let storage = MemoryStorage()
 
-  let makeRelation types records =
-    Relation(types, records) :> IRelation
+    let makeRelation types records =
+      Relation(types, records) :> IRelation
 
-  let assertRelationEquals (expected: IRelation) (actual: IRelation) =
-    actual.ToTuple() |> assertEquals (expected.ToTuple())
+    let assertRelationEquals (expected: IRelation) (actual: IRelation) =
+      actual.ToTuple() |> assertEquals (expected.ToTuple())
 
-  let profiles =
-    [
-      ("Miku", 16, "Green Onions")
-      ("Yukari", 18, "The Chainsaw")
-      ("Kaito", 20, "Ices") // NOTE: Just a test data.
-    ]
-    |> List.map (fun (name, age, item) ->
-      [|
-        String name
-        Int (int64 age)
-        String item
-      |] |> storage.Store
-      )
-    |> makeRelation
-      [|
-        Field ("name", TString)
-        Field ("age", TInt)
-        Field ("item", TString)
-      |]
+    let profiles =
+      [
+        ("Miku", 16, "Green Onions")
+        ("Yukari", 18, "The Chainsaw")
+        ("Kaito", 20, "Ices") // NOTE: Just a test data.
+      ]
+      |> List.map (fun (name, age, item) ->
+        [|
+          String name
+          Int (int64 age)
+          String item
+        |] |> storage.Store
+        )
+      |> makeRelation
+        [|
+          Field ("name", TString)
+          Field ("age", TInt)
+          Field ("item", TString)
+        |]
 
-  let produces =
-    [
-      ("wowaka", "Miku")
-      ("LIQ", "Miku")
-      ("LIQ", "Yukari")
-      ("hinayukki", "Kaito")
-    ]
-    |> List.map (fun (name, vocaloName) ->
-      [|
-        String name
-        String vocaloName
-      |] |> storage.Store
-      )
-    |> makeRelation
-      [|
-        Field ("p", TString)
-        Field ("vocalo", TString)
-      |]
+    let produces =
+      [
+        ("wowaka", "Miku")
+        ("LIQ", "Miku")
+        ("LIQ", "Yukari")
+        ("hinayukki", "Kaito")
+      ]
+      |> List.map (fun (name, vocaloName) ->
+        [|
+          String name
+          String vocaloName
+        |] |> storage.Store
+        )
+      |> makeRelation
+        [|
+          Field ("p", TString)
+          Field ("vocalo", TString)
+        |]
+
+  open TestData
 
   let projectionTest =
     test {

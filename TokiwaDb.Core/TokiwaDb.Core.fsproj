@@ -45,6 +45,7 @@
     <Compile Include="Util.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Funcs.fs" />
+    <Compile Include="StreamSource.fs" />
     <Compile Include="Storage.fs" />
     <Compile Include="Relation.fs" />
     <Compile Include="Table.fs" />
