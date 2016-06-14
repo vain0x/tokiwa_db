@@ -7,19 +7,10 @@ open System.Text
 type StreamSourceStorage(_src: IStreamSource) =
   inherit Storage()
 
-  member this.ReadInt64(stream: Stream) =
-    let bytes = Array.zeroCreate 8
-    let _ = stream.Read(bytes, 0, bytes.Length)
-    in bytes |> Int64.ofByteArray
-
-  member this.WriteInt64(stream: Stream, n: int64) =
-    let bytes = n |> Int64.toByteArray
-    in stream.Write(bytes, 0, bytes.Length)
-
   /// Reads the data written at the current position.
   /// Advances the position by the number of bytes read.
   member this.ReadData(stream: Stream) =
-    let len       = this.ReadInt64(stream)
+    let len       = stream |> Stream.readInt64
     assert (len <= (1L <<< 31))
     let data      = Array.zeroCreate (int len)  // TODO: Support "long" array.
     let _         = stream.Read(data, 0, int len)
@@ -49,7 +40,7 @@ type StreamSourceStorage(_src: IStreamSource) =
       use stream    = _src.OpenAppend()
       let p         = stream.Position
       let length    = 8L + data.LongLength
-      let ()        = this.WriteInt64(stream, data.LongLength)
+      let ()        = stream |> Stream.writeInt64 data.LongLength
       let ()        = stream.Write(data, 0, data.Length)
       in p
 

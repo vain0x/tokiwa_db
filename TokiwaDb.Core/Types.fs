@@ -12,19 +12,19 @@ module Types =
 
   /// A version number of database.
   /// The initial value is 0.
-  type RevId = int64
+  type RevisionId = int64
 
   type Name = string
 
   type Value =
     | Int           of int64
-    | Float         of double
+    | Float         of float
     | String        of string
     | Time          of DateTime
 
   type ValuePointer =
     | PInt           of int64
-    | PFloat         of double
+    | PFloat         of float
     | PString        of pointer
     | PTime          of DateTime
 
@@ -71,10 +71,17 @@ module Types =
 
     abstract member ToTuple: unit -> array<Field> * array<RecordPointer>
 
+  type Mortal<'x> =
+    {
+      Begin: RevisionId
+      End: RevisionId
+      Value: 'x
+    }
+
   type ITable =
     abstract member Name: Name
     abstract member Schema: Schema
-    abstract member Relation: IRelation
+    abstract member Relation: RevisionId -> IRelation
 
   type IDatabase =
     abstract member Name: string

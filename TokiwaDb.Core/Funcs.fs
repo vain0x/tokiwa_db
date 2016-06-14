@@ -1,5 +1,6 @@
 ﻿namespace TokiwaDb.Core
 
+open System
 open System.IO
 
 [<AutoOpen>]
@@ -11,19 +12,45 @@ module Extensions =
     member this.Store(record: Record): RecordPointer =
       record |> Array.map (fun value -> this.Store(value))
 
-module Int64 =
-  let toByteArray n =
-    Seq.unfold (fun (n, i) ->
-      if i = 8
-      then None
-      else Some (byte (n &&& 0xFFL), (n >>> 8, i + 1))
-      ) (n, 0)
-    |> Seq.toArray
-    |> Array.rev
+module ValuePointer =
+  let ofUntyped (Field (_, type')) (p: int64) =
+    match type' with
+    | TInt      -> PInt p
+    | TFloat    -> PFloat (BitConverter.Int64BitsToDouble p)
+    | TString   -> PString p
+    | TTime     -> PTime (DateTime.FromBinary(p))
 
-  let ofByteArray (bs: array<byte>) =
-    assert (bs.Length = 8)
-    bs |> Array.fold (fun n b -> (n <<< 8) ||| (int64 b)) 0L
+  let toUntyped =
+    function
+    | PInt p    -> p
+    | PFloat d  -> BitConverter.DoubleToInt64Bits(d)
+    | PString p -> p
+    | PTime t   -> t.ToBinary()
+
+module Schema =
+  let toFields (schema: Schema) =
+    let keyFields =
+      match schema.KeyFields with
+      | Id -> [| Field ("id", TInt) |]
+      | KeyFields keyFields -> keyFields
+    in
+      Array.append keyFields schema.NonkeyFields
+
+module Mortal =
+  let create t value =
+    {
+      Begin     = t
+      End       = Int64.MaxValue
+      Value     = value
+    }
+
+  let isAliveAt t (mortal: Mortal<_>) =
+    mortal.Begin <= t && t < mortal.End
+
+  let kill t (mortal: Mortal<_>) =
+    if mortal |> isAliveAt t
+    then { mortal with End = t }
+    else mortal
 
 type IStreamSource =
   abstract member OpenRead: unit -> Stream

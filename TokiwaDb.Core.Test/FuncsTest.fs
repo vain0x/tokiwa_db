@@ -1,19 +1,23 @@
 ﻿namespace TokiwaDb.Core.Test
 
+open System
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
-module Int64Test =
-  let ``toByteArray and ofByteArray Test`` =
-    let f (n, bs) =
+module ValuePointerTest =
+  let ``toUntyped and ofUntyped Test`` =
+    let body (valuePointer, type') =
       test {
-        do! n |> Int64.toByteArray |> assertEquals bs
-        do! bs |> Int64.ofByteArray |> assertEquals n
+        let actual = valuePointer |> ValuePointer.toUntyped |> ValuePointer.ofUntyped type'
+        do! actual |> assertEquals valuePointer
       }
     parameterize {
-      case (0L, Array.zeroCreate 8)
-      case (0x1020304050ABCDEFL, [| 0x10uy; 0x20uy; 0x30uy; 0x40uy; 0x50uy; 0xABuy; 0xCDuy; 0xEFuy |])
-      case (0xFFFFFFFFFFFFFFFFL, [| for i in 0..7 -> 0xFFuy |])
-      run f
+      case (PInt -12345678L, TInt)
+      case (PTime DateTime.Now, TTime)
+      case (PString 8L, TString)
+      case (PFloat 3.1415926535897932384626433832795, TFloat)
+      case (PFloat Double.PositiveInfinity, TFloat)
+      case (PFloat Double.NaN, TFloat)
+      run body
     }
