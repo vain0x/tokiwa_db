@@ -25,7 +25,7 @@ module ValuePointerTest =
 module RevisionServerTest =
   let revisionServerTest =
     test {
-      let rs = RevisionServer() :> IRevisionServer
+      let rs = MemoryRevisionServer()
       do! rs.Current |> assertEquals 0L
       do! rs.Next() |> assertEquals 1L
       do! rs.Next() |> assertEquals 2L

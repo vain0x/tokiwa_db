@@ -53,16 +53,23 @@ module Mortal =
     then { mortal with End = t }
     else mortal
 
-type RevisionServer(_id: RevisionId) =
+  let map (f: 'x -> 'y) (m: Mortal<'x>): Mortal<'y> =
+    {
+      Begin     = m.Begin
+      End       = m.End
+      Value     = f m.Value
+    }
+
+type MemoryRevisionServer(_id: RevisionId) =
+  inherit RevisionServer()
   let mutable _id = _id
 
   new() =
-    RevisionServer(0L)
+    MemoryRevisionServer(0L)
 
-  interface IRevisionServer with
-    override this.Current =
-      _id
+  override this.Current =
+    _id
 
-    override this.Next() =
-      _id <- _id + 1L
-      _id
+  override this.Next() =
+    _id <- _id + 1L
+    _id

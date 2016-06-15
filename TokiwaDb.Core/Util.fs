@@ -61,3 +61,14 @@ module Stream =
   let writeInt64 (n: int64) (stream: Stream) =
     let bytes = n |> Int64.toByteArray
     in stream.Write(bytes, 0, bytes.Length)
+
+
+module FileInfo =
+  open System.IO
+
+  let createNew (file: FileInfo) =
+    use stream = file.Create() in ()
+
+  let readTextAsync (file: FileInfo) =
+    use streamReader = file.OpenText()
+    in streamReader.ReadToEndAsync() |> Async.AwaitTask

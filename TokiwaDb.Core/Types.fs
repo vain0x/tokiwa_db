@@ -54,19 +54,21 @@ module Types =
   type RecordPointer =
     array<ValuePointer>
 
-  type IStorage =
+  /// A storage which stores values over 64bit (e.g. string, blob).
+  /// Data in storage should be immutable and unique.
+  type [<AbstractClass>] Storage() =
     abstract member Derefer: ValuePointer -> Value
     abstract member Store: Value -> ValuePointer
 
-  type IRelation =
+  type [<AbstractClass>] Relation() =
     abstract member Fields: array<Field>
     abstract member RecordPointers: seq<RecordPointer>
 
-    abstract member Filter: (RecordPointer -> bool) -> IRelation
-    abstract member Projection: array<Name> -> IRelation
-    abstract member Rename: Map<Name, Name> -> IRelation
-    abstract member Extend: array<Field> * (RecordPointer -> RecordPointer) -> IRelation
-    abstract member JoinOn: array<Name> * array<Name> * IRelation -> IRelation
+    abstract member Filter: (RecordPointer -> bool) -> Relation
+    abstract member Projection: array<Name> -> Relation
+    abstract member Rename: Map<Name, Name> -> Relation
+    abstract member Extend: array<Field> * (RecordPointer -> RecordPointer) -> Relation
+    abstract member JoinOn: array<Name> * array<Name> * Relation -> Relation
 
     abstract member ToTuple: unit -> array<Field> * array<RecordPointer>
 
@@ -76,20 +78,27 @@ module Types =
       End: RevisionId
       Value: 'x
     }
-
-  type IRevisionServer =
+    
+  type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
-
-  type ITable =
+    
+  type [<AbstractClass>] Table() =
     abstract member Name: Name
     abstract member Schema: Schema
-    abstract member Relation: RevisionId -> IRelation
+    abstract member Relation: RevisionId -> Relation
+    abstract member Database: Database
 
-    abstract member Insert: IRevisionServer * RecordPointer -> unit
-    abstract member Delete: IRevisionServer * (RecordPointer -> bool) -> unit
+    abstract member Insert: RecordPointer -> unit
+    abstract member Delete: (RecordPointer -> bool) -> unit
 
-  type IDatabase =
+  and [<AbstractClass>] Database() =
+    abstract member SyncRoot: obj
+
     abstract member Name: string
-    abstract member Tables: ITable
-    abstract member RevisionServer: IRevisionServer
+    abstract member RevisionServer: RevisionServer
+    abstract member Storage: Storage
+    abstract member Tables: RevisionId -> seq<Table>
+
+    abstract member CreateTable: Name * Schema -> Table
+    abstract member DropTable: Name -> bool

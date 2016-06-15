@@ -4,21 +4,16 @@ open System.Collections.Generic
 open System.IO
 open System.Text
 
-[<AbstractClass>]
-type Storage() =
-  abstract member Derefer: ValuePointer -> Value
-  abstract member Store: Value -> ValuePointer
+[<AutoOpen>]
+module StorageExtensions =
+  type Storage with
+    member this.Derefer(recordPtr: RecordPointer): Record =
+      recordPtr |> Array.map (fun valuePtr -> this.Derefer(valuePtr))
 
-  member this.Derefer(recordPtr: RecordPointer): Record =
-    recordPtr |> Array.map (fun valuePtr -> this.Derefer(valuePtr))
+    member this.Store(record: Record): RecordPointer =
+      record |> Array.map (fun value -> this.Store(value))
 
-  member this.Store(record: Record): RecordPointer =
-    record |> Array.map (fun value -> this.Store(value))
-
-  interface IStorage with
-    override this.Derefer(valuePointer) = this.Derefer(valuePointer)
-    override this.Store(value) = this.Store(value)
-
+/// A storage which stores values in stream.
 type StreamSourceStorage(_src: IStreamSource) =
   inherit Storage()
 
