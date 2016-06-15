@@ -57,8 +57,6 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
           yield rp.Value
     }
 
-  let _rev = _db.RevisionServer
-
   override this.Name = _name
 
   override this.Schema = _schema
@@ -69,6 +67,7 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
   override this.Database = _db
 
   override this.Insert(recordPointer: RecordPointer) =
+    let rev = _db.RevisionServer
     /// Add auto-increment field.
     let recordPointer =
       match _schema.KeyFields with
@@ -79,18 +78,19 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
     /// TODO: Runtime type validation.
     assert (recordPointer.Length = _fields.Length)
     lock _db.SyncRoot (fun () ->
-      let _         = _rev.Next()
+      let _         = rev.Next()
       use stream    = _recordPointersSource.OpenAppend()
-      in stream |> _writeRecordPointer _rev.Current recordPointer
+      in stream |> _writeRecordPointer rev.Current recordPointer
       )
 
   override this.Delete(pred: RecordPointer -> bool) =
     lock _db.SyncRoot (fun () ->
-      let _         = _rev.Next() |> ignore
+      let rev       = _db.RevisionServer
+      let _         = rev.Next() |> ignore
       use stream    = _recordPointersSource.OpenReadWrite()
       while stream.Position < stream.Length do
         let record = stream |> _readRecordPointer
-        if (record |> Mortal.isAliveAt _rev.Current) && (record.Value |> pred) then
+        if (record |> Mortal.isAliveAt rev.Current) && (record.Value |> pred) then
           stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-          stream |> _kill _rev.Current
+          stream |> _kill rev.Current
       )

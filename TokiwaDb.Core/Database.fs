@@ -74,42 +74,58 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
   let _storage =
     StreamSourceStorage(WriteOnceFileStreamSource(_storageFile))
 
-  let mutable _tables =
-    _tableDir.GetFiles("*.schema")
-    |> Array.map (fun file ->
-      async {
-        let tableFile   = FileInfo(Path.ChangeExtension(file.FullName, ".table"))
-        if tableFile.Exists then
-          let! text       = file |> FileInfo.readTextAsync
-          return 
-            text |> Yaml.tryLoad<Mortal<Schema>> |> Option.map (fun schema ->
-              schema |> Mortal.map (fun schema ->
-                StreamTable(this, tableFile.Name, schema, WriteOnceFileStreamSource(tableFile))
-                ))
-        else
-          return None
-      })
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> Array.choose id
-    |> Array.toList
-
-  let configFile =
+  let _configFile =
     FileInfo(Path.Combine(_dir.FullName, ".config"))
 
-  let config =
-    if configFile.Exists then
-      let configText = configFile |> FileInfo.readTextAsync |> Async.RunSynchronously
+  let _config =
+    if _configFile.Exists then
+      let configText = _configFile |> FileInfo.readText
       in configText |> Yaml.tryLoad<FileDatabaseConfig>
     else None
 
-  let revisionServer =
+  let _revisionServer =
     let currentRevision =
-      match config with
+      match _config with
       | Some config -> config.CurrentRevision
       | None -> 0L
     in
       MemoryRevisionServer(currentRevision)
+
+  let _saveConfig () =
+    let config =
+      {
+        CurrentRevision     = _revisionServer.Current
+      }
+    File.WriteAllText(_configFile.FullName, Yaml.dump config)
+
+  let mutable _tables =
+      _tableDir.GetFiles("*.schema")
+      |> Array.map (fun schemaFile ->
+        let tableFile   = FileInfo(Path.ChangeExtension(schemaFile.FullName, ".table"))
+        if tableFile.Exists then
+          schemaFile |> FileInfo.readText
+          |> Yaml.tryLoad<Mortal<Schema>>
+          |> Option.map (fun schema ->
+            schema |> Mortal.map (fun schema ->
+              let name              = Path.GetFileNameWithoutExtension(tableFile.Name)
+              let streamSource      = WriteOnceFileStreamSource(tableFile)
+              in StreamTable(this, name, schema, streamSource)
+              ))
+        else None
+        )
+      |> Array.choose id
+      |> Array.toList
+
+  let mutable _isDisposed = false
+
+  interface IDisposable with
+    override this.Dispose() =
+      if not _isDisposed then
+        _isDisposed <- true
+        _saveConfig ()
+
+  override this.Finalize() =
+    (this :> IDisposable).Dispose()
 
   override this.SyncRoot =
     _syncRoot
@@ -118,7 +134,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
     _dir.Name
 
   override this.RevisionServer =
-    revisionServer :> RevisionServer
+    _revisionServer :> RevisionServer
 
   override this.Storage =
     _storage :> Storage
@@ -131,18 +147,17 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       )
 
   override this.CreateTable(name: string, schema: Schema) =
-    match _tables |> List.tryFind (fun table -> table.Value.Name = name) with
-    | None ->
+    if _tables |> List.exists (fun table -> table.Value.Name = name) then
       failwithf "Table name '%s' has been already taken." name
-    | Some table ->
-      let revisionId = revisionServer.Next()
+    else
+      let revisionId      = _revisionServer.Next()
       /// Create schema file.
       let mortalSchema    = schema |> Mortal.create revisionId
-      let schemaFile      = FileInfo(Path.Combine(_dir.FullName, name + ".schema"))
+      let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
       use schemaStream    = schemaFile.CreateText()
       schemaStream.Write(mortalSchema |> Yaml.dump)
       /// Create table file.
-      let tableFile       = FileInfo(Path.Combine(_dir.FullName, name + ".table"))
+      let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
       let tableSource     = WriteOnceFileStreamSource(tableFile)
       let table           = StreamTable(this, name, schema, tableSource)
       tableFile |> FileInfo.createNew
@@ -156,10 +171,10 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
     | ([], _) ->
       false
     | (table :: _, tables') ->
-      let revisionId = revisionServer.Next()
+      let revisionId      = _revisionServer.Next()
       /// Kill schema.
       let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
-      let schemaFile      = FileInfo(Path.Combine(_dir.FullName, name + ".schema"))
+      let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
       use stream          = schemaFile.CreateText()
       stream.Write(mortalSchema |> Yaml.dump)
       /// Kill table.

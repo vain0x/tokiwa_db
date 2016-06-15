@@ -72,14 +72,14 @@ module TableTest =
     let testDb = testDb
 
     let persons =
-      testDb.Tables(testDb.RevisionServer.Current)
+      testDb.Tables(rev.Current)
       |> Seq.find (fun table -> table.Name = "persons")
 
   open TestData
 
   let deleteTest =
     test {
-      let previousRevisionId = testDb.RevisionServer.Current
+      let previousRevisionId = rev.Current
       let pred x =
         match x with
         | [| _; _; PInt age |] when age >= 20L -> true
@@ -90,4 +90,11 @@ module TableTest =
       /// And the previous version is still available.
       let actual = persons.Relation(previousRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 3
+    }
+
+  let dropTest =
+    test {
+      do! testDb.DropTable("persons") |> assertEquals true
+      do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
+      do! testDb.DropTable("INVALID NAME") |> assertEquals false
     }

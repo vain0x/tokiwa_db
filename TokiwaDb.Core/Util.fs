@@ -69,6 +69,6 @@ module FileInfo =
   let createNew (file: FileInfo) =
     use stream = file.Create() in ()
 
-  let readTextAsync (file: FileInfo) =
+  let readText (file: FileInfo) =
     use streamReader = file.OpenText()
-    in streamReader.ReadToEndAsync() |> Async.AwaitTask
+    in streamReader.ReadToEnd()

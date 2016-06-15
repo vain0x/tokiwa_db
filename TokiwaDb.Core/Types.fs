@@ -54,8 +54,8 @@ module Types =
   type RecordPointer =
     array<ValuePointer>
 
-  /// A storage which stores values over 64bit (e.g. string, blob).
-  /// Data in storage should be immutable and unique.
+  /// A storage which stores values with size more than 64bit (e.g. string, blob).
+  /// Data in storage must be immutable and unique.
   type [<AbstractClass>] Storage() =
     abstract member Derefer: ValuePointer -> Value
     abstract member Store: Value -> ValuePointer
