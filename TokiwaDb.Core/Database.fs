@@ -114,7 +114,8 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
         else None
         )
       |> Array.choose id
-      |> Array.toList
+      |> Array.map (fun table -> (table.Value.Name, table))
+      |> Map.ofArray
 
   let mutable _isDisposed = false
 
@@ -140,14 +141,14 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
     _storage :> Storage
 
   override this.Tables(t) =
-    _tables |> Seq.choose (fun table ->
+    _tables |> Seq.choose (fun (KeyValue (_, table)) ->
       if table |> Mortal.isAliveAt t
       then Some (table.Value :> Table)
       else None
       )
 
   override this.CreateTable(name: string, schema: Schema) =
-    if _tables |> List.exists (fun table -> table.Value.Name = name) then
+    if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
     else
       let revisionId      = _revisionServer.Next()
@@ -162,15 +163,13 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       let table           = StreamTable(this, name, schema, tableSource)
       tableFile |> FileInfo.createNew
       /// Add table.
-      _tables <- (mortalSchema |> Mortal.map (fun _ -> table)) :: _tables
+      _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
       /// Return the new table.
       table :> Table
 
   override this.DropTable(name: string) =
-    match _tables |> List.partition (fun table -> table.Value.Name = name) with
-    | ([], _) ->
-      false
-    | (table :: _, tables') ->
+    match _tables |> Map.tryFind name with
+    | Some table ->
       let revisionId      = _revisionServer.Next()
       /// Kill schema.
       let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
@@ -178,6 +177,8 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       use stream          = schemaFile.CreateText()
       stream.Write(mortalSchema |> Yaml.dump)
       /// Kill table.
-      _tables <- (table |> Mortal.kill revisionId) :: tables'
+      _tables <- _tables |> Map.add name (table |> Mortal.kill revisionId)
       /// Return true, which indicates some table is dropped.
       true
+    | None ->
+      false
