@@ -18,6 +18,9 @@ module DatabaseTest =
   let mutable savedRevision = 0L
   let insertedRow = [| String "Miku"; Int 16L|]
 
+  if repo.Exists then
+    repo.Delete((* recusive =*) true)
+
   let createTest =
     test {
       use db      = new DirectoryDatabase(repo)
@@ -53,5 +56,5 @@ module DatabaseTest =
       /// Inserted rows should be saved.
       let persons = tables |> Seq.find (fun table -> table.Name = "persons")
       let actual  = persons.Relation(savedRevision).RecordPointers |> Seq.head |> db.Storage.Derefer
-      do! actual |> assertEquals insertedRow
+      do! actual |> assertEquals (Array.append [| Int 0L |] insertedRow)
     }
