@@ -57,7 +57,6 @@
     <Compile Include="RelationTest.fs" />
     <Compile Include="TableTest.fs" />
     <Compile Include="DatabaseTest.fs" />
-    <Compile Include="BasicTest.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
