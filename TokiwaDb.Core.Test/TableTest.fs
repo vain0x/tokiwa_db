@@ -28,7 +28,7 @@ module TableTest =
         [| String "Kaito"; Int 20L |]
       ]
     for record in testData do
-      persons.Insert(storage.Store(record))
+      persons.Insert(record)
     test {
       let expected =
         testData
@@ -59,7 +59,7 @@ module TableTest =
         [| String "Frontier"; String "LIQ"; String "Yukari" |]
       ]
     for record in testData do
-      songs.Insert(storage.Store(record))
+      songs.Insert(record)
     test {
       let actual =
         songs.Relation(rev.Current).RecordPointers

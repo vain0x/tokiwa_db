@@ -66,8 +66,10 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
 
   override this.Database = _db
 
-  override this.Insert(recordPointer: RecordPointer) =
+  override this.Insert(record: Record) =
     let rev = _db.RevisionServer
+    let recordPointer =
+      _db.Storage.Store(record)
     /// Add auto-increment field.
     let recordPointer =
       match _schema.KeyFields with
@@ -94,3 +96,6 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
           stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
           stream |> _kill rev.Current
       )
+
+  override this.Delete(pred: Record -> bool) =
+    this.Delete(fun (rp: RecordPointer) -> _db.Storage.Derefer(rp) |> pred)

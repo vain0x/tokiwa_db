@@ -89,8 +89,9 @@ module Types =
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
 
-    abstract member Insert: RecordPointer -> unit
+    abstract member Insert: Record -> unit
     abstract member Delete: (RecordPointer -> bool) -> unit
+    abstract member Delete: (Record -> bool) -> unit
 
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj
