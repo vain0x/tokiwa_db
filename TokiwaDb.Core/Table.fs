@@ -6,8 +6,6 @@ open System.IO
 type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSource: IStreamSource) =
   inherit Table()
 
-  let syncRoot = new obj()
-
   let _fields =
     _schema |> Schema.toFields
 
