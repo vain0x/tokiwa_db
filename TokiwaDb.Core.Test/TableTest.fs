@@ -77,6 +77,12 @@ module TableTest =
 
   open TestData
 
+  let recordByIdTest =
+    test {
+      let actual = persons.RecordById(0L)
+      do! actual |> Option.isSome |> assertPred
+    }
+
   let deleteTest =
     test {
       let previousRevisionId = rev.Current

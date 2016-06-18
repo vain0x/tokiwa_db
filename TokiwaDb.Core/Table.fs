@@ -6,8 +6,6 @@ open System.IO
 type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSource: IStreamSource) =
   inherit Table()
 
-  let syncRoot = new obj()
-
   let _fields =
     _schema |> Schema.toFields
 
@@ -63,6 +61,15 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
 
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
+
+  override this.RecordById(id: Id) =
+    use stream    = _recordPointersSource.OpenRead()
+    let position  = id * _recordLength
+    if 0L <= position && position < stream.Length then 
+      let _       = stream.Seek(position, SeekOrigin.Begin)
+      in stream |> _readRecordPointer |> Some
+    else
+      None
 
   override this.Database = _db
 
