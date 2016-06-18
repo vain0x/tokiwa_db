@@ -89,6 +89,8 @@ module Types =
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
 
+    abstract member RecordById: Id -> option<Mortal<RecordPointer>>
+
     abstract member Insert: Record -> unit
     abstract member Delete: (RecordPointer -> bool) -> unit
     abstract member Delete: (Record -> bool) -> unit
