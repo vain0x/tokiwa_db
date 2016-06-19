@@ -1,6 +1,6 @@
 ﻿namespace TokiwaDb.Core.Test
 
-open System.Text
+open System.IO
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core

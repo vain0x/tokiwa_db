@@ -31,6 +31,7 @@ type HashTable<'k, 'v when 'k: equality>
     if _capacity = 0L then
       _capacity <- 7L
       _array.Initialize(_capacity, Empty)
+      assert (_array.Length = _capacity)
     else
       _countBusy <- 
         _array |> IResizeArray.toSeq
@@ -60,6 +61,7 @@ type HashTable<'k, 'v when 'k: equality>
       _capacity <- capacity'
       _countBusy <- 0L
       _array.Initialize(capacity', Empty)
+      assert (_array.Length = _capacity)
     let ()          =
       for (k, v) in elements do
         this.Update(k, v)
