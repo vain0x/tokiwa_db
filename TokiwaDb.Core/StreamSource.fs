@@ -21,9 +21,11 @@ type WriteOnceFileStreamSource(_file: FileInfo) =
       _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
 
     override this.Clear() =
-      _file.Delete()
+      if _file |> FileInfo.exists then
+        _file.Delete()
 
-    override this.Length = _file.Length
+    override this.Length =
+      _file |> FileInfo.length
 
 type MemoryStreamSource(_buffer: array<byte>) =
   inherit MemoryStream()

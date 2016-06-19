@@ -71,9 +71,19 @@ module Stream =
     let bytes = n |> Int64.toByteArray
     in stream.Write(bytes, 0, bytes.Length)
 
-
 module FileInfo =
   open System.IO
+
+  let exists (file: FileInfo) =
+    File.Exists(file.FullName)
+
+  let length (file: FileInfo) =
+    let () =
+      file.Refresh()
+    in
+      if file.Exists
+      then file.Length
+      else 0L
 
   let createNew (file: FileInfo) =
     use stream = file.Create() in ()
