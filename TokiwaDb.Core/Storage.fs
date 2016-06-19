@@ -119,8 +119,8 @@ type StreamSourceStorage(_src: IStreamSource, _hashTableSource: IStreamSource) =
 
 type FileStorage(_file: FileInfo) =
   inherit StreamSourceStorage
-    ( WriteOnceFileStreamSource(_file)
-    , WriteOnceFileStreamSource(FileInfo(_file.FullName + ".hashtable"))
+    ( FileStreamSource(_file)
+    , FileStreamSource(FileInfo(_file.FullName + ".hashtable"))
     )
 
 type MemoryStorage() =

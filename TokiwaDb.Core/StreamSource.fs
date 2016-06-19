@@ -9,7 +9,9 @@ type IStreamSource =
   abstract member Clear: unit -> unit
   abstract member Length: int64
 
-type WriteOnceFileStreamSource(_file: FileInfo) =
+/// Stream source based on a file.
+/// Note: OpenRead doesn't lock the file for reading or writing.
+type FileStreamSource(_file: FileInfo) =
   interface IStreamSource with
     override this.OpenReadWrite() =
       _file.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite) :> Stream
