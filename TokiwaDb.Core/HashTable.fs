@@ -24,10 +24,18 @@ type HashTable<'k, 'v when 'k: equality>
   ( _hash: 'k -> Hash
   , _array: IResizeArray<HashTableElement<'k, 'v>>
   ) =
-  let mutable _capacity = 7L
+  let mutable _capacity = _array.Length
   let mutable _countBusy = 0L
 
-  do _array.Initialize(_capacity, Empty)
+  do
+    if _capacity = 0L then
+      _capacity <- 7L
+      _array.Initialize(_capacity, Empty)
+    else
+      _countBusy <- 
+        _array |> IResizeArray.toSeq
+        |> Seq.map (function Busy _ -> 1L | _ -> 0L)
+        |> Seq.sum
 
   new (array: IResizeArray<HashTableElement<'k, 'v>>) =
     HashTable((fun x -> x.GetHashCode() |> int64), array)
