@@ -72,7 +72,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       _storageFile |> FileInfo.createNew
 
   let _storage =
-    StreamSourceStorage(WriteOnceFileStreamSource(_storageFile))
+    FileStorage(_storageFile)
 
   let _configFile =
     FileInfo(Path.Combine(_dir.FullName, ".config"))

@@ -67,7 +67,7 @@ type StreamSourceStorage(_src: IStreamSource) =
     | PInt x       -> Int x
     | PFloat x     -> Float x
     | PTime x      -> Time x
-    | PString p    -> this.ReadString(p) |> String
+    | PString p    -> this.ReadString(p) |> Value.String
 
   override this.Store(value) =
     match value with
