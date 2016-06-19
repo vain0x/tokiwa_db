@@ -51,8 +51,11 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="UtilTest.fs" />
-    <Compile Include="FuncsTest.fs" />
+    <Compile Include="Serializer.fs" />
     <Compile Include="StreamSourceTest.fs" />
+    <Compile Include="IResizeArrayTest.fs" />
+    <Compile Include="HashTableTest.fs" />
+    <Compile Include="FuncsTest.fs" />
     <Compile Include="StorageTest.fs" />
     <Compile Include="RelationTest.fs" />
     <Compile Include="TableTest.fs" />

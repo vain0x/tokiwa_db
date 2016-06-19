@@ -2,11 +2,50 @@
 
 open System
 open System.IO
+open System.Text
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
 module StorageTest =
+  let seaquentialStorageTest =
+    test {
+      let enc = UTF8Encoding.UTF8
+      let mss = new MemoryStreamSource([||]) :> IStreamSource
+      let ss = SequentialStorage(mss)
+      let ps =
+        seq {
+          for s in [|"hello"; "world!"|] do
+            yield ss.WriteData(enc.GetBytes(s))
+        }
+        |> Seq.toArray
+      do! ss.ReadData(ps.[0]) |> enc.GetString |> assertEquals "hello"
+      do! ss.ReadData(ps.[1]) |> enc.GetString |> assertEquals "world!"
+    }
+
+  let streamSourceStorage () =
+    StreamSourceStorage(new MemoryStreamSource(), new MemoryStreamSource())
+
+  let hashTableElementSerializerTest =
+    let storage     = streamSourceStorage ()
+    let data        = Array.create 3 1uy
+    let p           = storage.WriteData(data)
+    in
+      storage.HashTableElementSerializer |> SerializerTest.serializerTest
+        [
+          HashTableDetail.Busy (data, p, ByteArray.hash data |> int64)
+          HashTableDetail.Empty
+          HashTableDetail.Removed
+        ]
+
+  let hashTableTest =
+    test {
+      let storage     = streamSourceStorage ()
+      let data        = Array.create 3 1uy
+      let p           = storage.WriteData(data)
+      do! storage.TryFindData(data) |> assertEquals (Some p)
+    }
+
   let storageTest (storage: Storage) =
     let seeds             =
       [
@@ -40,7 +79,7 @@ module StorageTest =
     }
 
   let streamSourceStorageTest =
-    StreamSourceStorage(new MemoryStreamSource()) |> storageTest 
-    
+    streamSourceStorage () |> storageTest
+
   let memoryStorageTest =
     MemoryStorage() |> storageTest

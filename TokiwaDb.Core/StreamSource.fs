@@ -6,6 +6,7 @@ type IStreamSource =
   abstract member OpenReadWrite: unit -> Stream
   abstract member OpenRead: unit -> Stream
   abstract member OpenAppend: unit -> Stream
+  abstract member Clear: unit -> unit
   abstract member Length: int64
 
 type WriteOnceFileStreamSource(_file: FileInfo) =
@@ -19,7 +20,12 @@ type WriteOnceFileStreamSource(_file: FileInfo) =
     override this.OpenAppend() =
       _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
 
-    override this.Length = _file.Length
+    override this.Clear() =
+      if _file |> FileInfo.exists then
+        _file.Delete()
+
+    override this.Length =
+      _file |> FileInfo.length
 
 type MemoryStreamSource(_buffer: array<byte>) =
   inherit MemoryStream()
@@ -48,6 +54,9 @@ type MemoryStreamSource(_buffer: array<byte>) =
 
     override this.OpenAppend() =
       this.Open(index = _buffer.LongLength) :> Stream
+
+    override this.Clear() =
+      _buffer <- [||]
 
     override this.Length =
       _buffer.LongLength

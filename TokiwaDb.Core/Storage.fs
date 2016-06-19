@@ -1,8 +1,10 @@
 ﻿namespace TokiwaDb.Core
 
+open System
 open System.Collections.Generic
 open System.IO
 open System.Text
+open HashTableDetail
 
 [<AutoOpen>]
 module StorageExtensions =
@@ -13,10 +15,7 @@ module StorageExtensions =
     member this.Store(record: Record): RecordPointer =
       record |> Array.map (fun value -> this.Store(value))
 
-/// A storage which stores values in stream.
-type StreamSourceStorage(_src: IStreamSource) =
-  inherit Storage()
-
+type SequentialStorage(_src: IStreamSource) =
   /// Reads the data written at the current position.
   /// Advances the position by the number of bytes read.
   member this.ReadData(stream: Stream) =
@@ -32,28 +31,70 @@ type StreamSourceStorage(_src: IStreamSource) =
     use stream    = _src.OpenRead()
     let _         = stream.Seek(p, SeekOrigin.Begin)
     in this.ReadData(stream)
+    
+  member this.WriteData(data: array<byte>): pointer =
+    use stream    = _src.OpenAppend()
+    let p         = stream.Position
+    let length    = 8L + data.LongLength
+    let ()        = stream |> Stream.writeInt64 data.LongLength
+    let ()        = stream.Write(data, 0, data.Length)
+    in p
 
-  member this.ToSeq() =
-    let stream      = _src.OpenRead()
-    seq {
-      while stream.Position < stream.Length do
-        yield (stream.Position, this.ReadData(stream))
+/// A storage which stores values in stream.
+type StreamSourceStorage(_src: IStreamSource, _hashTableSource: IStreamSource) =
+  inherit Storage()
+
+  let _src = SequentialStorage(_src)
+
+  let _hash = ByteArray.hash >> int64
+
+  let _hashTableElementSerializer =
+    { new FixedLengthSerializer<HashTableElement<array<byte>, pointer>>() with
+        override this.Serialize(element) =
+          let p' =
+            match element with
+            | Busy (_, p, _) -> p
+            | Empty -> -1L
+            | Removed -> -2L
+          in BitConverter.GetBytes(p')
+
+        override thisSerializer.Deserialize(data) =
+          match BitConverter.ToInt64(data, 0) with
+          | -1L -> Empty
+          | -2L -> Removed
+          | p when p >= 0L -> 
+            // TODO: Lazy loading.
+            let data = _src.ReadData(p)
+            in Busy (data, p, _hash data)
+          | _ -> failwith "unexpected"
+
+        override this.Length = 8L
     }
 
-  member this.TryFindData(data: array<byte>) =
-    this.ToSeq()
-    |> Seq.tryFind (fun (p, data') -> data = data')
-    |> Option.map fst
+  let _hashTable =
+    let rootArray =
+      StreamArray<HashTableElement<array<byte>, pointer>>
+        ( _hashTableSource
+        , _hashTableElementSerializer
+        )
+    in
+      HashTable<array<byte>, pointer>(_hash, rootArray)
 
-  member this.WriteData(data: array<byte>): pointer =
+  member this.HashTableElementSerializer =
+    _hashTableElementSerializer
+
+  member this.TryFindData(data: array<byte>) =
+    _hashTable.TryFind(data)
+
+  member this.ReadData(p: pointer) =
+    _src.ReadData(p)
+
+  member this.WriteData(data) =
     match this.TryFindData(data) with
     | Some p -> p
     | None ->
-      use stream    = _src.OpenAppend()
-      let p         = stream.Position
-      let length    = 8L + data.LongLength
-      let ()        = stream |> Stream.writeInt64 data.LongLength
-      let ()        = stream.Write(data, 0, data.Length)
+      let p       = _src.WriteData(data)
+      let ()      =  _hashTable.Update(data, p)
       in p
 
   member this.ReadString(p: pointer) =
@@ -67,7 +108,7 @@ type StreamSourceStorage(_src: IStreamSource) =
     | PInt x       -> Int x
     | PFloat x     -> Float x
     | PTime x      -> Time x
-    | PString p    -> this.ReadString(p) |> String
+    | PString p    -> this.ReadString(p) |> Value.String
 
   override this.Store(value) =
     match value with
@@ -77,7 +118,10 @@ type StreamSourceStorage(_src: IStreamSource) =
     | String s    -> this.WriteString(s) |> PString
 
 type FileStorage(_file: FileInfo) =
-  inherit StreamSourceStorage(WriteOnceFileStreamSource(_file))
+  inherit StreamSourceStorage
+    ( WriteOnceFileStreamSource(_file)
+    , WriteOnceFileStreamSource(FileInfo(_file.FullName + ".hashtable"))
+    )
 
 type MemoryStorage() =
   inherit Storage()
