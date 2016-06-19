@@ -15,7 +15,7 @@ module StorageExtensions =
     member this.Store(record: Record): RecordPointer =
       record |> Array.map (fun value -> this.Store(value))
 
-type SequentialStorage(_src: IStreamSource) =
+type SequentialStorage(_src: StreamSource) =
   /// Reads the data written at the current position.
   /// Advances the position by the number of bytes read.
   member this.ReadData(stream: Stream) =
@@ -41,7 +41,7 @@ type SequentialStorage(_src: IStreamSource) =
     in p
 
 /// A storage which stores values in stream.
-type StreamSourceStorage(_src: IStreamSource, _hashTableSource: IStreamSource) =
+type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
   inherit Storage()
 
   let _src = SequentialStorage(_src)
@@ -119,8 +119,8 @@ type StreamSourceStorage(_src: IStreamSource, _hashTableSource: IStreamSource) =
 
 type FileStorage(_file: FileInfo) =
   inherit StreamSourceStorage
-    ( WriteOnceFileStreamSource(_file)
-    , WriteOnceFileStreamSource(FileInfo(_file.FullName + ".hashtable"))
+    ( FileStreamSource(_file)
+    , FileStreamSource(FileInfo(_file.FullName + ".hashtable"))
     )
 
 type MemoryStorage() =

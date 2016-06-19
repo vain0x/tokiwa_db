@@ -24,7 +24,7 @@ module IResizeArray =
 
 /// A stream source as an array of elements which can be serialized in fixed length.
 type StreamArray<'x>
-  ( _source: IStreamSource
+  ( _source: StreamSource
   , _serializer: FixedLengthSerializer<'x>
   ) =
   let _length () =

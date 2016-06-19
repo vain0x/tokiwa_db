@@ -2,33 +2,36 @@
 
 open System.IO
 
-type IStreamSource =
+type [<AbstractClass>] StreamSource() =
   abstract member OpenReadWrite: unit -> Stream
   abstract member OpenRead: unit -> Stream
   abstract member OpenAppend: unit -> Stream
   abstract member Clear: unit -> unit
   abstract member Length: int64
 
-type WriteOnceFileStreamSource(_file: FileInfo) =
-  interface IStreamSource with
-    override this.OpenReadWrite() =
-      _file.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite) :> Stream
+/// Stream source based on a file.
+/// Note: OpenRead doesn't lock the file for reading or writing.
+type FileStreamSource(_file: FileInfo) =
+  inherit StreamSource()
 
-    override this.OpenRead() =
-      _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite) :> Stream
+  override this.OpenReadWrite() =
+    _file.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite) :> Stream
 
-    override this.OpenAppend() =
-      _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
+  override this.OpenRead() =
+    _file.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite) :> Stream
 
-    override this.Clear() =
-      if _file |> FileInfo.exists then
-        _file.Delete()
+  override this.OpenAppend() =
+    _file.Open(FileMode.Append, FileAccess.Write, FileShare.Read) :> Stream
 
-    override this.Length =
-      _file |> FileInfo.length
+  override this.Clear() =
+    if _file |> FileInfo.exists then
+      _file.Delete()
+
+  override this.Length =
+    _file |> FileInfo.length
 
 type MemoryStreamSource(_buffer: array<byte>) =
-  inherit MemoryStream()
+  inherit StreamSource()
 
   let mutable _buffer = _buffer
 
@@ -45,18 +48,17 @@ type MemoryStreamSource(_buffer: array<byte>) =
     let _     = stream.Seek(index, SeekOrigin.Begin)
     in stream
 
-  interface IStreamSource with
-    override this.OpenReadWrite() =
-      this.Open(index = 0L) :> Stream
+  override this.OpenReadWrite() =
+    this.Open(index = 0L) :> Stream
 
-    override this.OpenRead() =
-      (this :> IStreamSource).OpenReadWrite()
+  override this.OpenRead() =
+    this.OpenReadWrite()
 
-    override this.OpenAppend() =
-      this.Open(index = _buffer.LongLength) :> Stream
+  override this.OpenAppend() =
+    this.Open(index = _buffer.LongLength) :> Stream
 
-    override this.Clear() =
-      _buffer <- [||]
+  override this.Clear() =
+    _buffer <- [||]
 
-    override this.Length =
-      _buffer.LongLength
+  override this.Length =
+    _buffer.LongLength

@@ -108,7 +108,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
           |> Option.map (fun schema ->
             schema |> Mortal.map (fun schema ->
               let name              = Path.GetFileNameWithoutExtension(tableFile.Name)
-              let streamSource      = WriteOnceFileStreamSource(tableFile)
+              let streamSource      = FileStreamSource(tableFile)
               in StreamTable(this, name, schema, streamSource)
               ))
         else None
@@ -159,7 +159,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       schemaStream.Write(mortalSchema |> Yaml.dump)
       /// Create table file.
       let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
-      let tableSource     = WriteOnceFileStreamSource(tableFile)
+      let tableSource     = FileStreamSource(tableFile)
       let table           = StreamTable(this, name, schema, tableSource)
       tableFile |> FileInfo.createNew
       /// Add table.

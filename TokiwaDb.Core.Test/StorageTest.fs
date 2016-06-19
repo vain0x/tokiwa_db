@@ -11,7 +11,7 @@ module StorageTest =
   let seaquentialStorageTest =
     test {
       let enc = UTF8Encoding.UTF8
-      let mss = new MemoryStreamSource([||]) :> IStreamSource
+      let mss = new MemoryStreamSource([||])
       let ss = SequentialStorage(mss)
       let ps =
         seq {
