@@ -45,9 +45,9 @@ type HashTable<'k, 'v when 'k: equality>
   member private this.LoadFactor =
     (float _countBusy) / (float _capacity)
 
-  member private this.Hash(key: 'k) =
+  member private this.Hash(key: 'k): Hash * int64 =
     let hash        = _hash key
-    in ((hash % _capacity) + _capacity) % _capacity
+    in (hash, ((hash % _capacity) + _capacity) % _capacity)
 
   member private this.Rehash() =
     let capacity'   = _capacity * 2L + 7L
@@ -66,13 +66,13 @@ type HashTable<'k, 'v when 'k: equality>
     in ()
 
   member this.Insert(key: 'k, value: 'v, f: 'v -> 'v -> 'v) =
-    let hash = this.Hash(key)
+    let (hash, i0) = this.Hash(key)
     let rec loop i =
       if i = _capacity then
         this.Rehash()
         this.Insert(key, value, f)
       else
-        let h = (hash + i) % _capacity
+        let h = (i0 + i) % _capacity
         match _array.Get(h) with
         | Busy (key', value', hash') when hash = hash' && key = key' ->
           _array.Set(h, Busy (key, f value' value, hash))
@@ -88,10 +88,10 @@ type HashTable<'k, 'v when 'k: equality>
     this.Insert(key, value, fun v v' -> v')
 
   member this.Remove(key: 'k) =
-    let hash = this.Hash(key)
+    let (hash, i0) = this.Hash(key)
     let rec loop i =
       if i < _capacity then
-        let h = (hash + i) % _capacity
+        let h = (i0 + i) % _capacity
         match _array.Get(h) with
         | Busy (key', _, hash') when hash = hash' && key = key' ->
           _array.Set(h, Removed)
@@ -105,12 +105,12 @@ type HashTable<'k, 'v when 'k: equality>
     in loop 0L
 
   member private this.TryFindImpl(key: 'k) =
-    let hash = this.Hash(key)
+    let (hash, i0) = this.Hash(key)
     let rec loop i =
       if i = _capacity
       then None
       else
-        let h = (hash + i) % _capacity
+        let h = (i0 + i) % _capacity
         match _array.Get(h) with
         | Busy (key', value', hash') when hash = hash' && key = key' ->
           Some (h, key', value')

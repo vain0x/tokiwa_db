@@ -35,7 +35,6 @@ module HashTableTest =
       // Inserted value and the value with the same key which already exists should be merged.
       let! e          = trap { it (map.Insert("test", 2, fun v v' -> failwithf "%d,%d" v v')) }
       do! e.Message |> assertEquals "1,2"
-      return ()
     }
 
   let xs =
