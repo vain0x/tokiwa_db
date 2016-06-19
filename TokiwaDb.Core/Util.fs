@@ -40,6 +40,15 @@ module Int64 =
     assert (bs.Length = 8)
     bs |> Array.fold (fun n b -> (n <<< 8) ||| (int64 b)) 0L
 
+module Hash =
+  /// Cloned from Boost hash_combine.
+  let combine seed hash =
+    seed ^^^ hash + 0x9e3779b9 + (seed <<< 6) + (seed >>> 2)
+
+module ByteArray =
+  let hash (xs: array<byte>) =
+    xs |> Array.fold (fun seed b -> Hash.combine seed (int b)) 0
+
 module Stream =
   open System.IO
   open System.Text
