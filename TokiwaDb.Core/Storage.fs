@@ -13,10 +13,7 @@ module StorageExtensions =
     member this.Store(record: Record): RecordPointer =
       record |> Array.map (fun value -> this.Store(value))
 
-/// A storage which stores values in stream.
-type StreamSourceStorage(_src: IStreamSource) =
-  inherit Storage()
-
+type SequentialStorage(_src: IStreamSource) =
   /// Reads the data written at the current position.
   /// Advances the position by the number of bytes read.
   member this.ReadData(stream: Stream) =
@@ -45,16 +42,28 @@ type StreamSourceStorage(_src: IStreamSource) =
     |> Seq.tryFind (fun (p, data') -> data = data')
     |> Option.map fst
 
-  member this.WriteData(data: array<byte>): pointer =
-    match this.TryFindData(data) with
+  member this.WriteData(data: array<byte>): int64 =
+    use stream    = _src.OpenAppend()
+    let p         = stream.Position
+    let length    = 8L + data.LongLength
+    let ()        = stream |> Stream.writeInt64 data.LongLength
+    let ()        = stream.Write(data, 0, data.Length)
+    in p
+
+/// A storage which stores values in stream.
+type StreamSourceStorage(_src: IStreamSource) =
+  inherit Storage()
+
+  let _src = SequentialStorage(_src)
+
+  member this.ReadData(p: pointer) =
+    _src.ReadData(p)
+
+  member this.WriteData(data) =
+    match _src.TryFindData(data) with
     | Some p -> p
     | None ->
-      use stream    = _src.OpenAppend()
-      let p         = stream.Position
-      let length    = 8L + data.LongLength
-      let ()        = stream |> Stream.writeInt64 data.LongLength
-      let ()        = stream.Write(data, 0, data.Length)
-      in p
+      _src.WriteData(data)
 
   member this.ReadString(p: pointer) =
     UTF8Encoding.UTF8.GetString(this.ReadData(p))
