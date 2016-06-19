@@ -3,7 +3,7 @@
 open System
 open System.IO
 
-type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSource: IStreamSource) =
+type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =

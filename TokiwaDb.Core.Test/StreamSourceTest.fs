@@ -5,7 +5,7 @@ open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
 module StreamSourceTest =
-  let streamSourceTest (ss: IStreamSource) =
+  let streamSourceTest (ss: StreamSource) =
     test {
       /// Can open and write.
       let stream = ss.OpenAppend()
@@ -23,5 +23,5 @@ module StreamSourceTest =
     }
 
   let memoryStreamSourceTest =
-    let mss = new MemoryStreamSource([||]) :> IStreamSource
+    let mss = new MemoryStreamSource([||])
     in mss |> streamSourceTest
