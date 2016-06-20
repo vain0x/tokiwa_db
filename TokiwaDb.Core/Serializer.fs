@@ -1,5 +1,6 @@
 ﻿namespace TokiwaDb.Core
 
+open System
 open Microsoft.FSharp.Reflection
 
 type INongenericFixedLengthSerializer =
@@ -156,3 +157,14 @@ type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSe
       | 1 -> [| serializer.Deserialize(data) |]
       | _ -> FSharpValue.GetTupleFields(serializer.Deserialize(data))
     in FSharpValue.MakeUnion(case, values) |> unbox<'u>
+
+type Int64Serializer() =
+  inherit FixedLengthSerializer<int64>()
+
+  override this.Length = 8L
+
+  override this.Serialize(value: int64) =
+    BitConverter.GetBytes(value)
+
+  override this.Deserialize(data) =
+    BitConverter.ToInt64(data, 0)

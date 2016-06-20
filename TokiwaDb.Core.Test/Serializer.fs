@@ -38,6 +38,9 @@ module SerializerTest =
       run body
     }
 
+  let int64SerializerTest =
+    Int64Serializer() |> serializerTest [1L; Int64.MinValue]
+
   let fixedStringSerializerTest =
     FixedStringSerializer() |> serializerTest ["test"]
 
