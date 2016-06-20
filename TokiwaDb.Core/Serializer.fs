@@ -34,3 +34,24 @@ type FixedLengthArraySerializer<'x>
         let q = (i + 1L) * _serializer.Length - 1L |> int
         yield _serializer.Deserialize(data.[p..q])
     |]
+
+type FixedLengthDoubleSerializer<'x0, 'x1>
+  ( _serializer0: FixedLengthSerializer<'x0>
+  , _serializer1: FixedLengthSerializer<'x1>
+  ) =
+  inherit FixedLengthSerializer<'x0 * 'x1>()
+
+  override this.Length =
+    _serializer0.Length + _serializer1.Length
+
+  override this.Serialize((x0, x1)) =
+    [|
+      yield! _serializer0.Serialize(x0)
+      yield! _serializer1.Serialize(x1)
+    |]
+
+  override this.Deserialize(data) =
+    assert (data.LongLength = this.Length)
+    let x0 = _serializer0.Deserialize(data.[..(_serializer0.Length - 1L |> int)])
+    let x1 = _serializer1.Deserialize(data.[(_serializer0.Length |> int)..])
+    in (x0, x1)

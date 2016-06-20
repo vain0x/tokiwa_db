@@ -47,3 +47,7 @@ module SerializerTest =
   let arraySerializerTest =
     FixedLengthArraySerializer(IntSerializer(), 3L)
     |> serializerTest [[|0; 1; 2|]]
+
+  let doubleSerializerTest =
+    FixedLengthDoubleSerializer(IntSerializer(), FixedStringSerializer())
+    |> serializerTest [(3, "test")]
