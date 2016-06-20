@@ -63,7 +63,7 @@ type FixedLengthArraySerializer<'x>
     |]
 
   override this.Deserialize(data) =
-    assert (data.LongLength = _dataLength)
+    assert (data.LongLength <= _dataLength)
     [|
       for i in 0L..(_length - 1L) do
         let p = i * _serializer.Length |> int
@@ -103,3 +103,56 @@ type FixedLengthQuadrupleSerializer<'x0, 'x1, 'x2, 'x3>
   , _serializer3: FixedLengthSerializer<'x3>
   ) =
   inherit FixedLengthTupleSerializer<'x0 * 'x1 * 'x2 * 'x3>([| _serializer0; _serializer1; _serializer2; _serializer3 |])
+
+type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSerializer>) =
+  inherit FixedLengthSerializer<'u>()
+
+  let _cases = FSharpType.GetUnionCases(typeof<'u>)
+
+  static do
+    assert (FSharpType.IsUnion(typedefof<'u>))
+
+  do
+    assert (_cases.Length = _serializers.Length)
+    assert (0 < _cases.Length && _cases.Length <= 0x100)
+
+  let _length =
+    (_serializers |> Array.map (fun s -> s.Length) |> Array.max) + 1L
+
+  override this.Length =
+    _length
+
+  override this.Serialize(u: 'u) =
+    let (case, values)  = FSharpValue.GetUnionFields(u, typeof<'u>)
+    let tag             = case.Tag |> byte
+    let serializer      = _serializers.[case.Tag]
+    let fields          = case.GetFields()
+    let data            =
+      match fields.Length with
+      | 0 -> [||]
+      | 1 -> serializer.Serialize(values.[0])
+      | _ ->
+        let fieldTypes  = fields |> Array.map(fun pi -> pi.PropertyType)
+        let tupleType   = FSharpType.MakeTupleType(fieldTypes)
+        in serializer.Serialize(FSharpValue.MakeTuple(values, tupleType))
+    let tailpad         =
+      Array.zeroCreate (this.Length - (1L + data.LongLength) |> int)
+    in
+      [|
+        yield tag
+        yield! data
+        yield! tailpad
+      |]
+
+  override this.Deserialize(data) =
+    let tag         = data.[0] |> int
+    let case        = _cases.[tag]
+    let fields      = case.GetFields()
+    let serializer  = _serializers.[tag]
+    let data        = data.[1..]
+    let values      =
+      match fields.Length with
+      | 0 -> [||]
+      | 1 -> [| serializer.Deserialize(data) |]
+      | _ -> FSharpValue.GetTupleFields(serializer.Deserialize(data))
+    in FSharpValue.MakeUnion(case, values) |> unbox<'u>

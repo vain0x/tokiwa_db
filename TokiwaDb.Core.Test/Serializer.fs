@@ -60,3 +60,22 @@ module SerializerTest =
       , FixedStringSerializer()
       )
     |> serializerTest [(1, "memo", 2, "note")]
+
+  type TestUnion =
+    | Unit
+    | Int of int
+    | Pair of string * int
+
+  let unionSerializerTest =
+    FixedLengthUnionSerializer<TestUnion>
+      ([|
+        IntSerializer() // Any serializer.
+        IntSerializer()
+        FixedLengthDoubleSerializer(FixedStringSerializer(), IntSerializer())
+      |])
+    |> serializerTest
+      [
+        Unit
+        Int 1
+        Pair("hoge", -1)
+      ]
