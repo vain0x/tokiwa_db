@@ -46,7 +46,7 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
 
   let _src = SequentialStorage(_src)
 
-  let _hash = ByteArray.hash >> int64
+  let _hash (xs: array<byte>) = xs |> Array.hash
 
   let _hashTableElementSerializer =
     { new FixedLengthSerializer<HashTableElement<array<byte>, pointer>>() with
