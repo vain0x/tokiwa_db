@@ -38,8 +38,47 @@ module SerializerTest =
       run body
     }
 
+  let int64SerializerTest =
+    Int64Serializer() |> serializerTest [1L; Int64.MinValue]
+
   let fixedStringSerializerTest =
     FixedStringSerializer() |> serializerTest ["test"]
 
   let intSerializerTest =
     IntSerializer() |> serializerTest [0; 100; -1]
+
+  let arraySerializerTest =
+    FixedLengthArraySerializer(IntSerializer(), 3L)
+    |> serializerTest [[|0; 1; 2|]]
+
+  let doubleSerializerTest =
+    FixedLengthDoubleSerializer(IntSerializer(), FixedStringSerializer())
+    |> serializerTest [(3, "test")]
+
+  let quadrupleSerializerTest =
+    FixedLengthQuadrupleSerializer
+      ( IntSerializer()
+      , FixedStringSerializer()
+      , IntSerializer()
+      , FixedStringSerializer()
+      )
+    |> serializerTest [(1, "memo", 2, "note")]
+
+  type TestUnion =
+    | Unit
+    | Int of int
+    | Pair of string * int
+
+  let unionSerializerTest =
+    FixedLengthUnionSerializer<TestUnion>
+      ([|
+        IntSerializer() // Any serializer.
+        IntSerializer()
+        FixedLengthDoubleSerializer(FixedStringSerializer(), IntSerializer())
+      |])
+    |> serializerTest
+      [
+        Unit
+        Int 1
+        Pair("hoge", -1)
+      ]
