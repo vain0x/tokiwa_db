@@ -55,3 +55,26 @@ type FixedLengthDoubleSerializer<'x0, 'x1>
     let x0 = _serializer0.Deserialize(data.[..(_serializer0.Length - 1L |> int)])
     let x1 = _serializer1.Deserialize(data.[(_serializer0.Length |> int)..])
     in (x0, x1)
+
+type FixedLengthQuadrupleSerializer<'x0, 'x1, 'x2, 'x3>
+  ( _serializer0: FixedLengthSerializer<'x0>
+  , _serializer1: FixedLengthSerializer<'x1>
+  , _serializer2: FixedLengthSerializer<'x2>
+  , _serializer3: FixedLengthSerializer<'x3>
+  ) =
+  inherit FixedLengthSerializer<'x0 * 'x1 * 'x2 * 'x3>()
+
+  let _serializer =
+    FixedLengthDoubleSerializer(_serializer0,
+      FixedLengthDoubleSerializer(_serializer1,
+        FixedLengthDoubleSerializer(_serializer2, _serializer3)))
+
+  override this.Length =
+    _serializer.Length
+
+  override this.Serialize((x0, x1, x2, x3)) =
+    _serializer.Serialize(x0, (x1, (x2, x3)))
+
+  override this.Deserialize(data) =
+    let (x0, (x1, (x2, x3))) = _serializer.Deserialize(data)
+    in (x0, x1, x2, x3)

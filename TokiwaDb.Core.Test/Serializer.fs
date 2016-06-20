@@ -51,3 +51,12 @@ module SerializerTest =
   let doubleSerializerTest =
     FixedLengthDoubleSerializer(IntSerializer(), FixedStringSerializer())
     |> serializerTest [(3, "test")]
+
+  let quadrupleSerializerTest =
+    FixedLengthQuadrupleSerializer
+      ( IntSerializer()
+      , FixedStringSerializer()
+      , IntSerializer()
+      , FixedStringSerializer()
+      )
+    |> serializerTest [(1, "memo", 2, "note")]
