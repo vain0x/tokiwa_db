@@ -43,3 +43,7 @@ module SerializerTest =
 
   let intSerializerTest =
     IntSerializer() |> serializerTest [0; 100; -1]
+
+  let arraySerializerTest =
+    FixedLengthArraySerializer(IntSerializer(), 3L)
+    |> serializerTest [[|0; 1; 2|]]
