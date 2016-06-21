@@ -95,6 +95,7 @@ module Types =
     abstract member Schema: Schema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
+    abstract member Indexes: array<HashTableIndex>
 
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
 
@@ -111,4 +112,5 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: Name * Schema -> Table
+    abstract member CreateTable: Name * Schema * array<array<int>> -> Table
     abstract member DropTable: Name -> bool

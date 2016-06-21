@@ -104,3 +104,27 @@ module TableTest =
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
       do! testDb.DropTable("INVALID NAME") |> assertEquals false
     }
+
+  let ``Insert/Remove to table with an index`` =
+    test {
+      let schema =
+        {
+          KeyFields = Id
+          NonkeyFields =
+            [| Field ("name", TString); Field ("age", TInt) |]
+        }
+      // Create a table with index in "name" column.
+      // NOTE: The first column (with index 0) is "id".
+      let persons2 =
+        testDb.CreateTable("persons2", schema, [| [| 1 |] |])
+      let () =
+        persons2.Insert([| String "Miku"; Int 16L |])
+        persons2.Insert([| String "Yukari"; Int 18L |])
+      do! persons2.Indexes.Length |> assertEquals 1
+      let index       = persons2.Indexes.[0]
+      do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)
+      // Then remove.
+      let () =
+        persons2.Delete(fun (recordPointer: RecordPointer) -> recordPointer.[0] = PInt 0L) |> ignore
+      do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
+    }

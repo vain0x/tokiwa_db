@@ -57,14 +57,12 @@ type FixedLengthArraySerializer<'x>
     _dataLength
 
   override this.Serialize(xs) =
-    assert (xs.LongLength = _length)
     [|
       for x in xs do
         yield! _serializer.Serialize(x)
     |]
 
   override this.Deserialize(data) =
-    assert (data.LongLength <= _dataLength)
     [|
       for i in 0L..(_length - 1L) do
         let p = i * _serializer.Length |> int

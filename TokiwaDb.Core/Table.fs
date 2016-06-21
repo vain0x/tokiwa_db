@@ -3,11 +3,14 @@
 open System
 open System.IO
 
-type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
     _schema |> Schema.toFields
+
+  let mutable _indexes =
+    _indexes
 
   let _recordLength =
     (_fields.LongLength + 2L) * 8L
@@ -55,9 +58,14 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
           yield rp.Value
     }
 
+  new (db, name, schema, source) =
+    StreamTable(db, name, schema, [||], source)
+
   override this.Name = _name
 
   override this.Schema = _schema
+
+  override this.Indexes = _indexes
 
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
@@ -78,16 +86,18 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
     let recordPointer =
       _db.Storage.Store(record)
     /// Add auto-increment field.
+    let nextId = _recordPointersSource.Length / _recordLength
     let recordPointer =
       match _schema.KeyFields with
-      | Id ->
-        let nextId = _recordPointersSource.Length / _recordLength
-        in Array.append [| PInt nextId |] recordPointer
+      | Id -> Array.append [| PInt nextId |] recordPointer
       | _ -> recordPointer
     /// TODO: Runtime type validation.
     assert (recordPointer.Length = _fields.Length)
     lock _db.SyncRoot (fun () ->
       let _         = rev.Next()
+      let ()        =
+        for index in _indexes do
+          index.Insert(index.Projection(recordPointer), nextId)
       use stream    = _recordPointersSource.OpenAppend()
       in stream |> _writeRecordPointer rev.Current recordPointer
       )
@@ -102,6 +112,8 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _recordPointersSou
         if (record |> Mortal.isAliveAt rev.Current) && (record.Value |> pred) then
           stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
           stream |> _kill rev.Current
+          for index in _indexes do
+            index.Remove(index.Projection(record.Value)) |> ignore
       )
 
   override this.Delete(pred: Record -> bool) =
