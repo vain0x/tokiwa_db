@@ -41,6 +41,12 @@ module SerializerTest =
   let int64SerializerTest =
     Int64Serializer() |> serializerTest [1L; Int64.MinValue]
 
+  let floatSerializerTest =
+    FloatSerializer() |> serializerTest [3.14; Double.MaxValue; Double.NegativeInfinity]
+
+  let dateTimeSerializerTest =
+    DateTimeSerializer() |> serializerTest [DateTime.Now]
+
   let fixedStringSerializerTest =
     FixedStringSerializer() |> serializerTest ["test"]
 

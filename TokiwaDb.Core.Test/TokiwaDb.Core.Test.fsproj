@@ -58,6 +58,7 @@
     <Compile Include="FuncsTest.fs" />
     <Compile Include="StorageTest.fs" />
     <Compile Include="RelationTest.fs" />
+    <Compile Include="HashTableIndexTest.fs" />
     <Compile Include="TableTest.fs" />
     <Compile Include="DatabaseTest.fs" />
   </ItemGroup>

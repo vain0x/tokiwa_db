@@ -168,3 +168,25 @@ type Int64Serializer() =
 
   override this.Deserialize(data) =
     BitConverter.ToInt64(data, 0)
+
+type FloatSerializer() =
+  inherit FixedLengthSerializer<float>()
+
+  override this.Length = 8L
+
+  override this.Serialize(value: float) =
+    BitConverter.GetBytes(value)
+
+  override this.Deserialize(data) =
+    BitConverter.ToDouble(data, 0)
+
+type DateTimeSerializer() =
+  inherit FixedLengthSerializer<DateTime>()
+
+  override this.Length = 8L
+
+  override this.Serialize(value: DateTime) =
+    BitConverter.GetBytes(value.ToBinary())
+
+  override this.Deserialize(data) =
+    DateTime.FromBinary(BitConverter.ToInt64(data, 0))

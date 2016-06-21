@@ -19,6 +19,28 @@ module ValuePointer =
     | PString p -> p
     | PTime t   -> t.ToBinary()
 
+  let serialize vp =
+    BitConverter.GetBytes(vp |> toUntyped)
+
+  let hash vp =
+    vp |> toUntyped
+
+  let serializer =
+    FixedLengthUnionSerializer<ValuePointer>
+      ([|
+        Int64Serializer()
+        FloatSerializer()
+        Int64Serializer()
+        DateTimeSerializer()
+      |])
+
+module RecordPointer =
+  let hash recordPointer =
+    recordPointer |> Array.map ValuePointer.hash |> Array.hash |> int64
+
+  let serializer len =
+    FixedLengthArraySerializer(ValuePointer.serializer, len)
+
 module Schema =
   let toFields (schema: Schema) =
     let keyFields =

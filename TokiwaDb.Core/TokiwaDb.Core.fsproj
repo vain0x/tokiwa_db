@@ -51,6 +51,7 @@
     <Compile Include="Funcs.fs" />
     <Compile Include="Storage.fs" />
     <Compile Include="Relation.fs" />
+    <Compile Include="HashTableIndex.fs" />
     <Compile Include="Table.fs" />
     <Compile Include="Database.fs" />
   </ItemGroup>
