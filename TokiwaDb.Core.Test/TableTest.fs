@@ -16,18 +16,17 @@ module TableTest =
       [| String "Kaito"; Int 20L |]
     ]
 
-  let ``Insert to table with AI key`` =
+  let insertTest =
     let schema =
-      {
-        KeyFields = Id
-        NonkeyFields =
-          [|
-            Field ("name", TString)
-            Field ("age", TInt)
-          |]
+      { TableSchema.empty "persons" with
+          Fields =
+            [|
+              Field.string "name"
+              Field.int "age"
+            |]
       }
     let persons =
-      testDb.CreateTable("persons", schema)
+      testDb.CreateTable(schema)
     for record in testData do
       persons.Insert(record)
     test {
@@ -41,34 +40,6 @@ module TableTest =
       do! actual |> assertEquals expected
     }
     
-  let ``Insert to table with non-AI key`` =
-    let schema =
-      {
-        KeyFields =
-          KeyFields
-            [|
-              Field ("title", TString)
-              Field ("composer", TString)
-            |]
-        NonkeyFields =
-          [| Field ("singer", TString) |]
-      }
-    let songs = testDb.CreateTable("songs", schema)
-    let testData =
-      [
-        [| String "Ura Omote Lovers"; String "wowaka"; String "Miku" |]
-        [| String "Frontier"; String "LIQ"; String "Yukari" |]
-      ]
-    for record in testData do
-      songs.Insert(record)
-    test {
-      let actual =
-        songs.Relation(rev.Current).RecordPointers
-        |> Seq.map storage.Derefer
-        |> Seq.toList
-      do! actual |> assertEquals testData
-    }
-
   module TestData =
     let testDb = testDb
 
@@ -119,14 +90,16 @@ module TableTest =
     test {
       let schema =
         {
-          KeyFields = Id
-          NonkeyFields =
-            [| Field ("name", TString); Field ("age", TInt) |]
+          Name = "persons2"
+          Fields =
+            [| Field.string "name"; Field.int "age" |]
+          Indexes =
+            [| HashTableIndexSchema [| 1 |] |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
-        testDb.CreateTable("persons2", schema, [| [| 1 |] |])
+        testDb.CreateTable(schema)
       let () =
         persons2.Insert([| String "Miku"; Int 16L |])
         persons2.Insert([| String "Yukari"; Int 18L |])

@@ -41,20 +41,29 @@ module RecordPointer =
   let serializer len =
     FixedLengthArraySerializer(ValuePointer.serializer, len)
 
-module Schema =
-  let toFields (schema: Schema) =
-    let keyFields =
-      match schema.KeyFields with
-      | Id -> [| Field ("id", TInt) |]
-      | KeyFields keyFields -> keyFields
-    in
-      Array.append keyFields schema.NonkeyFields
+module Field =
+  let int name =
+    Field (name, TInt)
 
-  let readFromStream (stream: Stream) =
-    stream |> Stream.readToEnd |> Yaml.load<Schema>
+  let float name =
+    Field (name, TFloat)
 
-  let writeToStream (stream: Stream) schema =
-    stream |> Stream.writeString (schema |> Yaml.dump<Schema>)
+  let string name =
+    Field (name, TString)
+
+  let time name =
+    Field (name, TTime)
+
+module TableSchema =
+  let empty name =
+    {
+      Name              = name
+      Fields            = [||]
+      Indexes           = [||]
+    }
+
+  let toFields (schema: TableSchema) =
+    Array.append [| Field ("id", TInt) |] schema.Fields
 
 module Mortal =
   let maxLifeSpan =

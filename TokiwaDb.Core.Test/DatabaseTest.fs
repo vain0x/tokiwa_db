@@ -6,13 +6,6 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
-module Field =
-  let str name =
-    Field (name, TString)
-
-  let int name =
-    Field (name, TInt)
-
 module DatabaseTest =
   let repo    = DirectoryInfo(@"__unit_test_db")
   let mutable savedRevision = 0L
@@ -28,11 +21,10 @@ module DatabaseTest =
 
       let persons =
         let schema =
-          {
-            KeyFields = Id
-            NonkeyFields = [| Field.str "name"; Field.int "age" |]
+          { TableSchema.empty "persons" with
+              Fields = [| Field.string "name"; Field.int "age" |]
           }
-        in db.CreateTable("persons", schema)
+        in db.CreateTable(schema)
 
       let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]

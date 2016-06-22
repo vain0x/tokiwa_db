@@ -39,15 +39,14 @@ module Types =
   type Field =
     | Field         of Name * ValueType
 
-  type KeyFields =
-    /// Auto-increment unique integer.
-    | Id
-    | KeyFields     of array<Field>
+  type IndexSchema =
+    | HashTableIndexSchema      of array<int>
 
-  type Schema =
+  type TableSchema =
     {
-      KeyFields     : KeyFields
-      NonkeyFields  : array<Field>
+      Name          : Name
+      Fields        : array<Field>
+      Indexes       : array<IndexSchema>
     }
 
   type Record =
@@ -80,7 +79,7 @@ module Types =
       End: RevisionId
       Value: 'x
     }
-    
+
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
@@ -91,10 +90,9 @@ module Types =
 
     abstract member Insert: RecordPointer * Id -> unit
     abstract member Remove: RecordPointer -> bool
-    
+
   type [<AbstractClass>] Table() =
-    abstract member Name: Name
-    abstract member Schema: Schema
+    abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
     abstract member Indexes: array<HashTableIndex>
@@ -105,9 +103,7 @@ module Types =
     abstract member Insert: Record -> unit
     abstract member Remove: Id -> option<Mortal<RecordPointer>>
 
-    interface IEnumerable<Id * Mortal<RecordPointer>> with
-      member this.GetEnumerator() = this.ToSeq().GetEnumerator()
-      member this.GetEnumerator() = (this :> IEnumerable<Id * Mortal<RecordPointer>>).GetEnumerator() :> IEnumerator
+    member this.Name = this.Schema.Name
 
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj
@@ -117,6 +113,5 @@ module Types =
     abstract member Storage: Storage
     abstract member Tables: RevisionId -> seq<Table>
 
-    abstract member CreateTable: Name * Schema -> Table
-    abstract member CreateTable: Name * Schema * array<array<int>> -> Table
+    abstract member CreateTable: TableSchema -> Table
     abstract member DropTable: Name -> bool

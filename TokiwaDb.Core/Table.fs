@@ -3,11 +3,11 @@
 open System
 open System.IO
 
-type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
-    _schema |> Schema.toFields
+    _schema |> TableSchema.toFields
 
   let mutable _indexes =
     _indexes
@@ -67,10 +67,8 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
           yield rp.Value
     }
 
-  new (db, name, schema, source) =
-    StreamTable(db, name, schema, [||], source)
-
-  override this.Name = _name
+  new (db, schema, source) =
+    StreamTable(db, schema, [||], source)
 
   override this.Schema = _schema
 
@@ -94,14 +92,10 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
 
   override this.Insert(record: Record) =
     let rev = _db.RevisionServer
-    let recordPointer =
-      _db.Storage.Store(record)
     /// Add auto-increment field.
     let nextId = _recordPointersSource.Length / _recordLength
     let recordPointer =
-      match _schema.KeyFields with
-      | Id -> Array.append [| PInt nextId |] recordPointer
-      | _ -> recordPointer
+      Array.append [| PInt nextId |] (_db.Storage.Store(record))
     /// TODO: Runtime type validation.
     assert (recordPointer.Length = _fields.Length)
     lock _db.SyncRoot (fun () ->
