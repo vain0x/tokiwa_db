@@ -67,6 +67,8 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           yield rp.Value
     }
 
+  let _insertOne recordPointer =
+
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
 
@@ -90,28 +92,33 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   override this.Database = _db
 
-  override this.Insert(record: Record) =
+  override this.Insert(records: array<Record>) =
     let rev = _db.RevisionServer
     /// Add auto-increment field.
-    let nextId = _recordPointersSource.Length / _recordLength
-    let recordPointer =
-      Array.append [| PInt nextId |] (_db.Storage.Store(record))
-    /// TODO: Runtime type validation.
-    assert (recordPointer.Length = _fields.Length)
     lock _db.SyncRoot (fun () ->
-      let _         = rev.Next()
-      let ()        =
-        for index in _indexes do
-          index.Insert(index.Projection(recordPointer), nextId)
-      use stream    = _recordPointersSource.OpenAppend()
-      in stream |> _writeRecordPointer rev.Current recordPointer
-      )
+      let _               = rev.Next()
+      use stream          = _recordPointersSource.OpenAppend()
+      let nextId          = _length stream
+      let recordPointers  =
+        records |> Array.mapi (fun i record ->
+          Array.append [| PInt (nextId + int64 i) |] (_db.Storage.Store(record))
+          )
+      let ()              =
+        for recordPointer in recordPointers do
+          /// TODO: Runtime type validation.
+          assert (recordPointer.Length = _fields.Length)
+          for index in _indexes do
+            index.Insert(index.Projection(recordPointer), nextId)
+          stream |> _writeRecordPointer rev.Current recordPointer
+      in ())
 
-  override this.Remove(recordId) =
+  override this.Remove(recordIds) =
     lock _db.SyncRoot (fun () ->
       let rev       = _db.RevisionServer
       let revId     = rev.Next()
+      let recordIds = recordIds |> Array.sort
       use stream    = _recordPointersSource.OpenReadWrite()
+
       in
         _positionFromId recordId stream |> Option.bind (fun position ->
           let _     = stream.Seek(position, SeekOrigin.Begin)

@@ -106,8 +106,8 @@ module Types =
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
     abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
-    abstract member Insert: Record -> unit
-    abstract member Remove: Id -> option<Mortal<RecordPointer>>
+    abstract member Insert: array<Record> -> unit
+    abstract member Remove: array<Id> -> array<option<Mortal<RecordPointer>>>
 
     member this.Name = this.Schema.Name
 
