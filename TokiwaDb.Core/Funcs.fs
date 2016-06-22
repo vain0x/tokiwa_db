@@ -41,6 +41,19 @@ module RecordPointer =
   let serializer len =
     FixedLengthArraySerializer(ValuePointer.serializer, len)
 
+module Field =
+  let int name =
+    Field (name, TInt)
+
+  let float name =
+    Field (name, TFloat)
+
+  let string name =
+    Field (name, TString)
+
+  let time name =
+    Field (name, TTime)
+
 module TableSchema =
   let toFields (schema: TableSchema) =
     Array.append [| Field ("id", TInt) |] schema.Fields

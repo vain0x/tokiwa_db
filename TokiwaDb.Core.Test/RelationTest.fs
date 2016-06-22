@@ -28,9 +28,9 @@ module RelationTest =
       )
     |> makeRelation
       [|
-        Field ("name", TString)
-        Field ("age", TInt)
-        Field ("item", TString)
+        Field.string "name"
+        Field.int "age"
+        Field.string "item"
       |]
 
   let produces =
@@ -48,8 +48,8 @@ module RelationTest =
       )
     |> makeRelation
       [|
-        Field ("p", TString)
-        Field ("vocalo", TString)
+        Field.string "p"
+        Field.string "vocalo"
       |]
 
   let projectionTest =
@@ -64,8 +64,8 @@ module RelationTest =
           [|Int (int64 age); String name|] |> storage.Store)
         |> makeRelation
           [|
-            Field ("age", TInt)
-            Field ("name", TString)
+            Field.int "age"
+            Field.string "name"
           |]
       let actual =
         profiles.Projection([|"age"; "name"|])
@@ -77,8 +77,8 @@ module RelationTest =
       let expected =
         let fields =
           [|
-            Field ("p_name", TString)
-            Field ("vocaloid", TString)
+            Field.string "p_name"
+            Field.string "vocaloid"
           |]
         in NaiveRelation(fields, produces.RecordPointers)
       let actual = produces.Rename(Map.ofList [("p", "p_name"); ("vocalo", "vocaloid")])
@@ -100,9 +100,9 @@ module RelationTest =
           )
         |> makeRelation
           [|
-            Field ("p", TString)
-            Field ("vocalo", TString)
-            Field ("artist", TString)
+            Field.string "p"
+            Field.string "vocalo"
+            Field.string "artist"
           |]
       let actual =
         let fields =
@@ -135,10 +135,10 @@ module RelationTest =
           )
         |> makeRelation
           [|
-            Field ("age", TInt)
-            Field ("item", TString)
-            Field ("name", TString)
-            Field ("p", TString)
+            Field.int "age"
+            Field.string "item"
+            Field.string "name"
+            Field.string "p"
           |]
       let actual =
         profiles.JoinOn([|"name"|], [|"vocalo"|], produces)

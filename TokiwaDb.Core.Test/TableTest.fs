@@ -21,8 +21,8 @@ module TableTest =
       {
         Fields =
           [|
-            Field ("name", TString)
-            Field ("age", TInt)
+            Field.string "name"
+            Field.int "age"
           |]
       }
     let persons =
@@ -91,7 +91,7 @@ module TableTest =
       let schema =
         {
           Fields =
-            [| Field ("name", TString); Field ("age", TInt) |]
+            [| Field.string "name"; Field.int "age" |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".

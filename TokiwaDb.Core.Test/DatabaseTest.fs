@@ -6,13 +6,6 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
-module Field =
-  let str name =
-    Field (name, TString)
-
-  let int name =
-    Field (name, TInt)
-
 module DatabaseTest =
   let repo    = DirectoryInfo(@"__unit_test_db")
   let mutable savedRevision = 0L
@@ -29,7 +22,7 @@ module DatabaseTest =
       let persons =
         let schema =
           {
-            Fields = [| Field.str "name"; Field.int "age" |]
+            Fields = [| Field.string "name"; Field.int "age" |]
           }
         in db.CreateTable("persons", schema)
 
