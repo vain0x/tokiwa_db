@@ -55,6 +55,13 @@ module Field =
     Field (name, TTime)
 
 module TableSchema =
+  let empty name =
+    {
+      Name              = name
+      Fields            = [||]
+      Indexes           = [||]
+    }
+
   let toFields (schema: TableSchema) =
     Array.append [| Field ("id", TInt) |] schema.Fields
 

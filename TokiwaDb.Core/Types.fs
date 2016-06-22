@@ -46,6 +46,7 @@ module Types =
     {
       Name          : Name
       Fields        : array<Field>
+      Indexes       : array<IndexSchema>
     }
 
   type Record =
@@ -117,5 +118,4 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: TableSchema -> Table
-    abstract member CreateTable: TableSchema * array<IndexSchema> -> Table
     abstract member DropTable: Name -> bool

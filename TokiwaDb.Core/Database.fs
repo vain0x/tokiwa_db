@@ -31,11 +31,11 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
       else None
       )
 
-  override this.CreateTable(schema, indexSchemas) =
+  override this.CreateTable(schema) =
     let revisionId =
       _rev.Next()
     let indexes =
-      indexSchemas |> Array.map
+      schema.Indexes |> Array.map
         (function
         | HashTableIndexSchema fieldIndexes ->
           StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
@@ -45,9 +45,6 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
     let () =
       _tables <- (table |> Mortal.create revisionId) :: _tables
     in table
-
-  override this.CreateTable(schema) =
-    this.CreateTable(schema, [||])
 
   override this.DropTable(name) =
     let revisionId =
@@ -111,20 +108,18 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       _tableDir.GetFiles("*.schema")
       |> Array.map (fun schemaFile ->
         let tableFile   = FileInfo(Path.ChangeExtension(schemaFile.FullName, ".table"))
-        let indexesFile = FileInfo(Path.ChangeExtension(schemaFile.FullName, ".indexes"))
         if tableFile.Exists then
           schemaFile |> FileInfo.readText
           |> Yaml.tryLoad<Mortal<TableSchema>>
           |> Option.map (fun schema ->
             schema |> Mortal.map (fun schema ->
               let name              = Path.GetFileNameWithoutExtension(tableFile.Name)
-              let fieldIndexesList  =
-                indexesFile |> FileInfo.readText
-                |> Yaml.load<array<array<int>>>
               let indexes           =
-                fieldIndexesList |> Array.mapi (fun i fieldIndexes ->
-                  let file = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
-                  in StreamHashTableIndex(fieldIndexes, FileStreamSource(file)))
+                schema.Indexes |> Array.mapi (fun i indexSchema ->
+                  match indexSchema with
+                  | HashTableIndexSchema fieldIndexes ->
+                    let file = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
+                    in StreamHashTableIndex(fieldIndexes, FileStreamSource(file)))
               let streamSource      = FileStreamSource(tableFile)
               in StreamTable(this, schema, streamSource)
               ))
@@ -161,7 +156,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       else None
       )
 
-  override this.CreateTable(schema: TableSchema, indexSchemas) =
+  override this.CreateTable(schema: TableSchema) =
     let name = schema.Name
     if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
@@ -174,15 +169,13 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       schemaStream.Write(mortalSchema |> Yaml.dump)
       /// Create index files.
       let indexes         =
-        indexSchemas |> Array.mapi (fun i indexSchema ->
+        schema.Indexes |> Array.mapi (fun i indexSchema ->
           match indexSchema with
           | HashTableIndexSchema fieldIndexes ->
             let indexFile   = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
             let ()          = indexFile |> FileInfo.createNew
             in StreamHashTableIndex(fieldIndexes, FileStreamSource(indexFile))
           )
-      let indexesFile     = FileInfo(Path.Combine(_tableDir.FullName, name + ".indexes"))
-      let ()              = File.WriteAllText(indexesFile.FullName, Yaml.dump indexSchemas)
       /// Create table file.
       let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
       let tableSource     = FileStreamSource(tableFile)
@@ -192,9 +185,6 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
       /// Return the new table.
       table :> Table
-
-  override this.CreateTable(schema: TableSchema) =
-    this.CreateTable(schema, [||])
 
   override this.DropTable(name: string) =
     match _tables |> Map.tryFind name with

@@ -18,13 +18,12 @@ module TableTest =
 
   let insertTest =
     let schema =
-      {
-        Name = "persons"
-        Fields =
-          [|
-            Field.string "name"
-            Field.int "age"
-          |]
+      { TableSchema.empty "persons" with
+          Fields =
+            [|
+              Field.string "name"
+              Field.int "age"
+            |]
       }
     let persons =
       testDb.CreateTable(schema)
@@ -94,11 +93,13 @@ module TableTest =
           Name = "persons2"
           Fields =
             [| Field.string "name"; Field.int "age" |]
+          Indexes =
+            [| HashTableIndexSchema [| 1 |] |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
-        testDb.CreateTable(schema, [| HashTableIndexSchema [| 1 |] |])
+        testDb.CreateTable(schema)
       let () =
         persons2.Insert([| String "Miku"; Int 16L |])
         persons2.Insert([| String "Yukari"; Int 18L |])

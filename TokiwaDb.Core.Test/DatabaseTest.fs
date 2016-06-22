@@ -21,9 +21,8 @@ module DatabaseTest =
 
       let persons =
         let schema =
-          {
-            Name = "persons"
-            Fields = [| Field.string "name"; Field.int "age" |]
+          { TableSchema.empty "persons" with
+              Fields = [| Field.string "name"; Field.int "age" |]
           }
         in db.CreateTable(schema)
 
