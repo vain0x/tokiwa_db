@@ -10,13 +10,6 @@ type IResizeArray<'x> =
   abstract member Set: int64 * 'x -> unit
   abstract member Initialize: int64 * 'x -> unit
 
-/// A serializer which can serialize a value to a byte array with fixed length;
-/// and can deserialize the byte array to the original value.
-type [<AbstractClass>] FixedLengthSerializer<'x>() =
-  abstract member Serialize: 'x -> array<byte>
-  abstract member Deserialize: array<byte> -> 'x
-  abstract member Length: int64
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module IResizeArray =
   let toSeq (xs: IResizeArray<'x>): seq<'x> =

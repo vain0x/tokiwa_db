@@ -11,12 +11,6 @@ module HashTableDetail =
     | Empty
     | Removed
 
-  [<RequireQualifiedAccess>]
-  type HashTableElementKind =
-    | Busy = 0
-    | Empty = 1
-    | Removed = 2
-
 open HashTableDetail
 
 /// Hash table implemented using open addressing.
@@ -124,38 +118,15 @@ type HashTable<'k, 'v when 'k: equality>
   member this.TryFind(key: 'k) =
     this.TryFindImpl(key) |> Option.map (fun (_, _, value) -> value)
 
-type HashTableElementSerializer<'k, 'v>(_keySerializer: FixedLengthSerializer<'k>, _valueSerializer: FixedLengthSerializer<'v>) =
-  inherit FixedLengthSerializer<HashTableElement<'k, 'v>>()
-
-  override this.Length =
-    1L + 8L + _keySerializer.Length + _valueSerializer.Length
-
-  override this.Serialize(element) =
-    match element with
-    | Busy (key, value, hash) ->
-      [|
-        yield HashTableElementKind.Busy |> byte
-        yield! BitConverter.GetBytes(hash)
-        yield! _keySerializer.Serialize(key)
-        yield! _valueSerializer.Serialize(value)
-      |]
-    | Empty ->
-      let xs      = Array.zeroCreate (this.Length |> int)
-      let ()      = xs.[0] <- HashTableElementKind.Empty |> byte
-      in xs
-    | Removed ->
-      let xs      = Array.zeroCreate (this.Length |> int)
-      let ()      = xs.[0] <- HashTableElementKind.Removed |> byte
-      in xs
-
-  override this.Deserialize(bs) =
-    match enum<HashTableElementKind>(bs.[0] |> int) with
-    | HashTableElementKind.Busy ->
-      let hash    = BitConverter.ToInt64(bs, 1)
-      let key     = _keySerializer.Deserialize(bs.[9..(9 + int _keySerializer.Length - 1)])
-      let i       = this.Length - _valueSerializer.Length |> int
-      let value   = _valueSerializer.Deserialize(bs.[i..])
-      in Busy (key, value, hash)
-    | HashTableElementKind.Empty -> Empty
-    | HashTableElementKind.Removed -> Removed
-    | _ -> raise (Exception())
+type HashTableElementSerializer<'k, 'v>
+  ( _keySerializer: FixedLengthSerializer<'k>
+  , _valueSerializer: FixedLengthSerializer<'v>
+  ) =
+  inherit 
+    FixedLengthUnionSerializer<HashTableElement<'k, 'v>>
+      ([|
+        FixedLengthTupleSerializer<'k * 'v * Hash>(
+          [| _keySerializer; _valueSerializer; Int64Serializer() |])
+        Int64Serializer()
+        Int64Serializer()
+      |])

@@ -1,9 +1,17 @@
 ﻿namespace TokiwaDb.Core
 
+module Hash =
+  /// Cloned from Boost hash_combine.
+  let combine seed hash =
+    seed ^^^ hash + 0x9e3779b9L + (seed <<< 6) + (seed >>> 2)
+
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
 
 module Array =
+  let inline hash< ^x when ^x: (static member op_Explicit: ^x -> int64)> (xs: array< ^x>) =
+    xs |> Array.fold (fun seed x -> Hash.combine seed (int64 x)) 0L
+
   let choosei f xs =
     xs |> Array.mapi f |> Array.choose id
 
@@ -39,15 +47,6 @@ module Int64 =
   let ofByteArray (bs: array<byte>) =
     assert (bs.Length = 8)
     bs |> Array.fold (fun n b -> (n <<< 8) ||| (int64 b)) 0L
-
-module Hash =
-  /// Cloned from Boost hash_combine.
-  let combine seed hash =
-    seed ^^^ hash + 0x9e3779b9 + (seed <<< 6) + (seed >>> 2)
-
-module ByteArray =
-  let hash (xs: array<byte>) =
-    xs |> Array.fold (fun seed b -> Hash.combine seed (int b)) 0
 
 module Stream =
   open System.IO

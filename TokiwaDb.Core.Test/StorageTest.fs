@@ -33,7 +33,7 @@ module StorageTest =
     in
       storage.HashTableElementSerializer |> SerializerTest.serializerTest
         [
-          HashTableDetail.Busy (data, p, ByteArray.hash data |> int64)
+          HashTableDetail.Busy (data, p, Array.hash data)
           HashTableDetail.Empty
           HashTableDetail.Removed
         ]

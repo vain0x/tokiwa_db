@@ -82,12 +82,20 @@ module Types =
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
+
+  type [<AbstractClass>] HashTableIndex() =
+    abstract member Projection: RecordPointer -> RecordPointer
+    abstract member TryFind: RecordPointer -> option<Id>
+
+    abstract member Insert: RecordPointer * Id -> unit
+    abstract member Remove: RecordPointer -> bool
     
   type [<AbstractClass>] Table() =
     abstract member Name: Name
     abstract member Schema: Schema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
+    abstract member Indexes: array<HashTableIndex>
 
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
 
@@ -104,4 +112,5 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: Name * Schema -> Table
+    abstract member CreateTable: Name * Schema * array<array<int>> -> Table
     abstract member DropTable: Name -> bool
