@@ -80,6 +80,11 @@ module Types =
       Value: 'x
     }
 
+  [<RequireQualifiedAccess>]
+  type Error =
+    | WrongFieldsCount    of array<Field> * Record
+    | InvalidId           of Id
+
   type Operation =
     | CreateTable         of TableSchema
     | InsertRecords       of Name * array<Record>
@@ -106,13 +111,10 @@ module Types =
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
     abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
-    abstract member Insert: array<Record> -> unit
-    abstract member Remove: array<Id> -> array<option<Mortal<RecordPointer>>>
+    abstract member Insert: array<Record> -> array<Error>
+    abstract member Remove: array<Id> -> array<Error>
 
     member this.Name = this.Schema.Name
-
-    member this.Remove(recordId) =
-      this.Remove([| recordId |]).[0]
 
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj

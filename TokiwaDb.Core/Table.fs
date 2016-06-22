@@ -96,19 +96,21 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     lock _db.SyncRoot (fun () ->
       let _               = rev.Next()
       use stream          = _recordPointersSource.OpenAppend()
-      let nextId          = _length stream
-      let recordPointers  =
-        records |> Array.mapi (fun i record ->
-          Array.append [| PInt (nextId + int64 i) |] (_db.Storage.Store(record))
-          )
-      let ()              =
-        for recordPointer in recordPointers do
-          /// TODO: Runtime type validation.
-          assert (recordPointer.Length = _fields.Length)
-          for index in _indexes do
-            index.Insert(index.Projection(recordPointer), nextId)
-          stream |> _writeRecordPointer rev.Current recordPointer
-      in ())
+      let nextId          = _length stream |> ref
+      in
+        [|
+          for record in records do
+            /// TODO: Runtime type validation.
+            if record.Length + 1 <> _fields.Length then
+              yield Error.WrongFieldsCount (_schema.Fields, record)
+            else
+              let recordPointer =
+                Array.append [| PInt (! nextId) |] (_db.Storage.Store(record))
+              for index in _indexes do
+                index.Insert(index.Projection(recordPointer), ! nextId)
+              stream |> _writeRecordPointer rev.Current recordPointer
+              nextId := (! nextId) + 1L
+        |])
 
   override this.Remove(recordIds) =
     lock _db.SyncRoot (fun () ->
@@ -118,8 +120,11 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       use stream    = _recordPointersSource.OpenReadWrite()
       in
         [|
-          for recordId in recordIds ->
-            _positionFromId recordId stream |> Option.bind (fun position ->
+          for recordId in recordIds do
+            match _positionFromId recordId stream with
+            | None ->
+              yield Error.InvalidId recordId
+            | Some position ->
               let _     = stream.Seek(position, SeekOrigin.Begin)
               let record = stream |> _readRecordPointer
               in
@@ -128,7 +133,4 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
                   stream |> _kill revId
                   for index in _indexes do
                     index.Remove(index.Projection(record.Value)) |> ignore
-                  record |> Mortal.kill revId |> Some
-                else None
-              )
         |])

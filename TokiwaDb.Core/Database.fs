@@ -16,7 +16,7 @@ module Database =
         this.CreateTable(schema) |> ignore
       | InsertRecords (tableName, records) ->
         this |> tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.Insert(records))
+        |> Option.iter (fun table -> table.Insert(records) |> ignore)
       | RemoveRecords (tableName, recordIds) ->
         this |> tryFindLivingTable tableName
         |> Option.iter (fun table -> table.Remove(recordIds) |> ignore)

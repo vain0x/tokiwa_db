@@ -27,7 +27,7 @@ module TableTest =
       }
     let persons =
       testDb.CreateTable(schema)
-    let () = persons.Insert(testData |> List.toArray)
+    let _ = persons.Insert(testData |> List.toArray)
     test {
       let expected =
         testData
@@ -47,6 +47,15 @@ module TableTest =
       |> Seq.find (fun table -> table.Name = "persons")
 
   open TestData
+
+  let insertFailureTest =
+    test {
+      // Wrong count of fields.
+      let actual =
+        persons.Insert([| [||] |])
+        |> (function | [| Error.WrongFieldsCount (_, _) |] -> true | _ -> false)
+      do! actual |> assertPred
+    }
 
   let recordByIdTest =
     test {
@@ -69,13 +78,22 @@ module TableTest =
     test {
       let previousRevisionId = rev.Current
       // Remove Yukari.
-      let actual = persons.Remove(1L) |> Option.map (fun rp -> rp.Value.[2])
-      do! actual |> assertEquals (PInt 18L |> Some)
+      do! persons.Remove([| 1L |]) |> assertEquals [||]
       let actual = persons.Relation(testDb.RevisionServer.Current).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 2
       /// And the previous version is still available.
       let actual = persons.Relation(previousRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 3
+    }
+
+  let removeFailureTest =
+    test {
+      let isInvalidId =
+        function
+        | Error.InvalidId _ -> true
+        | _ -> false
+      do! persons.Remove([| -1L |]) |> Array.exists isInvalidId |> assertPred
+      do! persons.Remove([| 9L |]) |> Array.exists isInvalidId |> assertPred
     }
 
   let dropTest =
@@ -99,7 +117,7 @@ module TableTest =
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
         testDb.CreateTable(schema)
-      let () =
+      let _ =
         persons2.Insert
           ([|
             [| String "Miku"; Int 16L |]
@@ -109,8 +127,8 @@ module TableTest =
       let index       = persons2.Indexes.[0]
       do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)
       // Then remove Miku.
-      let () =
-        persons2.Remove(0L) |> ignore
+      let _ =
+        persons2.Remove([| 0L |])
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
     }
 
