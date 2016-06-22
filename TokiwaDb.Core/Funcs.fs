@@ -79,6 +79,11 @@ module Mortal =
   let isAliveAt t (mortal: Mortal<_>) =
     mortal.Begin <= t && t < mortal.End
 
+  let valueIfAliveAt t (mortal: Mortal<_>) =
+    if mortal |> isAliveAt t
+    then mortal.Value |> Some
+    else None
+
   let kill t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
     then { mortal with End = t }

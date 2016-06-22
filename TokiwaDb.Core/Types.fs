@@ -80,6 +80,12 @@ module Types =
       Value: 'x
     }
 
+  type Operation =
+    | CreateTable         of TableSchema
+    | InsertRecord        of Name * Record
+    | RemoveRecord        of Name * Id
+    | DropTable           of Name
+
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
@@ -112,6 +118,8 @@ module Types =
     abstract member RevisionServer: RevisionServer
     abstract member Storage: Storage
     abstract member Tables: RevisionId -> seq<Table>
+    abstract member TryFindLivingTable: Name * RevisionId -> option<Table>
 
     abstract member CreateTable: TableSchema -> Table
     abstract member DropTable: Name -> bool
+    abstract member Perform: array<Operation> -> unit

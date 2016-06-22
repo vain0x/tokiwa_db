@@ -4,12 +4,38 @@ open System
 open System.IO
 open FsYaml
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Database =
+  let tryFindLivingTable name (this: Database) =
+      this.TryFindLivingTable(name, this.RevisionServer.Current)
+
+  let perform (operations: array<Operation>) (this: Database) =
+    for operation in operations do
+      match operation with
+      | CreateTable schema ->
+        this.CreateTable(schema) |> ignore
+      | InsertRecord (tableName, record) ->
+        this |> tryFindLivingTable tableName
+        |> Option.iter (fun table -> table.Insert(record))
+      | RemoveRecord (tableName, recordId) ->
+        this |> tryFindLivingTable tableName
+        |> Option.iter (fun table -> table.Remove(recordId) |> ignore)
+      | DropTable tableName ->
+        this.DropTable(tableName) |> ignore
+
 type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) =
   inherit Database()
 
   let _syncRoot = new obj()
 
   let mutable _tables = _tables
+
+  let _tryFindTable name =
+    _tables |> List.tryFind (fun table -> table.Value.Name = name)
+
+  let _tryFindLivingTable t name =
+    _tryFindTable name
+    |> Option.bind (Mortal.valueIfAliveAt t)
 
   new (name: string) =
     MemoryDatabase(name, MemoryRevisionServer() :> RevisionServer, new MemoryStorage(), [])
@@ -30,6 +56,9 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
       then Some table.Value
       else None
       )
+
+  override this.TryFindLivingTable(tableName, t) =
+    _tryFindLivingTable t tableName
 
   override this.CreateTable(schema) =
     let revisionId =
@@ -57,6 +86,9 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
       _tables <- droppedTables' @ tables'
     in
       droppedTables |> List.isEmpty |> not
+
+  override this.Perform(operations) =
+    this |> Database.perform operations
 
 type FileDatabaseConfig =
   {
@@ -156,6 +188,11 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       else None
       )
 
+  override this.TryFindLivingTable(tableName, t) =
+    _tables |> Map.tryFind tableName
+    |> Option.bind (Mortal.valueIfAliveAt t)
+    |> Option.map (fun table -> table :> Table)
+
   override this.CreateTable(schema: TableSchema) =
     let name = schema.Name
     if _tables |> Map.containsKey name then
@@ -201,3 +238,6 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       true
     | None ->
       false
+
+  override this.Perform(operations) =
+    this |> Database.perform operations
