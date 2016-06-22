@@ -1,6 +1,8 @@
 ﻿namespace TokiwaDb.Core
 
 open System
+open System.Collections
+open System.Collections.Generic
 
 [<AutoOpen>]
 module Types =
@@ -98,10 +100,14 @@ module Types =
     abstract member Indexes: array<HashTableIndex>
 
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
+    abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
     abstract member Insert: Record -> unit
-    abstract member Delete: (RecordPointer -> bool) -> unit
-    abstract member Delete: (Record -> bool) -> unit
+    abstract member Remove: Id -> option<Mortal<RecordPointer>>
+
+    interface IEnumerable<Id * Mortal<RecordPointer>> with
+      member this.GetEnumerator() = this.ToSeq().GetEnumerator()
+      member this.GetEnumerator() = (this :> IEnumerable<Id * Mortal<RecordPointer>>).GetEnumerator() :> IEnumerator
 
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj

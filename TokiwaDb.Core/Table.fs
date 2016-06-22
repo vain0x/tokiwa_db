@@ -15,6 +15,14 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
   let _recordLength =
     (_fields.LongLength + 2L) * 8L
 
+  let _length (stream: Stream) =
+    stream.Length / _recordLength
+
+  let _positionFromId (recordId: Id) (stream: Stream) =
+    if 0L <= recordId && recordId < (_length stream)
+    then recordId * _recordLength |> Some
+    else None
+
   /// Read a record written at the current position.
   let _readRecordPointer (stream: Stream) =
     let beginRevision   = stream |> Stream.readInt64
@@ -47,13 +55,14 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
   let _allRecordPointers () =
     seq {
       let stream = _recordPointersSource.OpenRead()
-      while stream.Position < stream.Length do
-        yield stream |> _readRecordPointer
+      let length = _length stream
+      for recordId in 0L..(length - 1L) do
+        yield (recordId, stream |> _readRecordPointer)
     }
 
   let _aliveRecordPointers (t: RevisionId) =
     seq {
-      for rp in _allRecordPointers () do
+      for (_, rp) in _allRecordPointers () do
         if rp |> Mortal.isAliveAt t then
           yield rp.Value
     }
@@ -70,14 +79,16 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
 
-  override this.RecordById(id: Id) =
+  override this.ToSeq() =
+    _allRecordPointers ()
+
+  override this.RecordById(recordId: Id) =
     use stream    = _recordPointersSource.OpenRead()
-    let position  = id * _recordLength
-    if 0L <= position && position < stream.Length then 
-      let _       = stream.Seek(position, SeekOrigin.Begin)
-      in stream |> _readRecordPointer |> Some
-    else
-      None
+    in
+      _positionFromId recordId stream |> Option.map (fun position ->
+        let _       = stream.Seek(position, SeekOrigin.Begin)
+        in stream |> _readRecordPointer
+        )
 
   override this.Database = _db
 
@@ -102,19 +113,21 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
       in stream |> _writeRecordPointer rev.Current recordPointer
       )
 
-  override this.Delete(pred: RecordPointer -> bool) =
+  override this.Remove(recordId) =
     lock _db.SyncRoot (fun () ->
       let rev       = _db.RevisionServer
-      let _         = rev.Next() |> ignore
+      let revId     = rev.Next()
       use stream    = _recordPointersSource.OpenReadWrite()
-      while stream.Position < stream.Length do
-        let record = stream |> _readRecordPointer
-        if (record |> Mortal.isAliveAt rev.Current) && (record.Value |> pred) then
-          stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-          stream |> _kill rev.Current
-          for index in _indexes do
-            index.Remove(index.Projection(record.Value)) |> ignore
-      )
-
-  override this.Delete(pred: Record -> bool) =
-    this.Delete(fun (rp: RecordPointer) -> _db.Storage.Derefer(rp) |> pred)
+      in
+        _positionFromId recordId stream |> Option.bind (fun position ->
+          let _     = stream.Seek(position, SeekOrigin.Begin)
+          let record = stream |> _readRecordPointer
+          in
+            if (record |> Mortal.isAliveAt revId) then
+              stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+              stream |> _kill revId
+              for index in _indexes do
+                index.Remove(index.Projection(record.Value)) |> ignore
+              record |> Mortal.kill revId |> Some
+            else None
+        ))
