@@ -113,3 +113,23 @@ module TableTest =
         persons2.Remove(0L) |> ignore
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
     }
+
+  let performTest =
+    test {
+      let schema =
+        { TableSchema.empty "songs" with
+            Fields = [| Field.string "title"; Field.string "composer" |]
+        }
+      let operations =
+        [|
+          CreateTable schema
+          InsertRecord (schema.Name, [| String "Ura Omote Lovers"; String "wowaka" |])
+          InsertRecord (schema.Name, [| String "Rollin' Girl"; String "wowaka" |])
+          RemoveRecord (schema.Name, 0L)
+        |]
+      let () = testDb.Perform(operations)
+      let songs = testDb |> Database.tryFindLivingTable schema.Name
+      do! songs |> Option.isSome |> assertPred
+      let songs = songs |> Option.get
+      do! songs.Relation(rev.Current).RecordPointers |> Seq.length |> assertEquals 1
+    }
