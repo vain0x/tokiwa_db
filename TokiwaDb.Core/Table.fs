@@ -90,12 +90,12 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   override this.Database = _db
 
-  override this.Insert(records: array<Record>) =
-    let rev = _db.RevisionServer
-    /// Add auto-increment field.
+  override this.PerformInsert(records: array<Record>) =
     lock _db.SyncRoot (fun () ->
+      let rev             = _db.RevisionServer
       let _               = rev.Next()
       use stream          = _recordPointersSource.OpenAppend()
+<<<<<<< Updated upstream
       let nextId          = _length stream |> ref
       in
         [|
@@ -111,6 +111,29 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
               stream |> _writeRecordPointer rev.Current recordPointer
               nextId := (! nextId) + 1L
         |])
+=======
+      let nextId          = _length stream
+      /// Add auto-increment field.
+      let recordPointers  =
+        records |> Array.mapi (fun i record ->
+          Array.append [| PInt (nextId + int64 i) |] (_db.Storage.Store(record))
+          )
+      let ()              =
+        for recordPointer in recordPointers do
+          /// TODO: Runtime type validation.
+          assert (recordPointer.Length = _fields.Length)
+          for index in _indexes do
+            index.Insert(index.Projection(recordPointer), nextId)
+          stream |> _writeRecordPointer rev.Current recordPointer
+      in ())
+>>>>>>> Stashed changes
+
+  override this.Insert(records: array<Record>) =
+    match _db.Transaction with
+    | Some transaction ->
+      transaction.Add(InsertRecord (this.Name, records))
+    | None ->
+      this.PerformInsert(records)
 
   override this.Remove(recordIds) =
     lock _db.SyncRoot (fun () ->

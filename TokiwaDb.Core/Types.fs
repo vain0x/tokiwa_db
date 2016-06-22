@@ -91,6 +91,14 @@ module Types =
     | RemoveRecords       of Name * array<Id>
     | DropTable           of Name
 
+  type [<AbstractClass>] Transaction() =
+    abstract member BeginCount: int
+    abstract member Operations: seq<Operation>
+    abstract member Rebegin: unit -> unit
+    abstract member Add: Operation -> unit
+    abstract member Commit: unit -> unit
+    abstract member Rollback: unit -> unit
+
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
@@ -111,8 +119,15 @@ module Types =
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
     abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
+<<<<<<< Updated upstream
     abstract member Insert: array<Record> -> array<Error>
     abstract member Remove: array<Id> -> array<Error>
+=======
+    abstract member Insert: array<Record> -> unit
+    abstract member Remove: array<Id> -> array<option<Mortal<RecordPointer>>>
+    abstract member PerformInsert: array<Record> -> unit
+    abstract member PerformRemove: array<Id> -> unit
+>>>>>>> Stashed changes
 
     member this.Name = this.Schema.Name
 
@@ -120,8 +135,14 @@ module Types =
     abstract member SyncRoot: obj
 
     abstract member Name: string
+
     abstract member RevisionServer: RevisionServer
+    abstract member Transaction: option<Transaction>
+    abstract member BeginTransaction: unit -> Transaction
+    abstract member EndTransaction: unit -> unit
+
     abstract member Storage: Storage
+
     abstract member Tables: RevisionId -> seq<Table>
     abstract member TryFindLivingTable: Name * RevisionId -> option<Table>
 
