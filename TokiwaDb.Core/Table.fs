@@ -94,14 +94,10 @@ type StreamTable(_db: Database, _name: Name, _schema: TableSchema, _indexes: arr
 
   override this.Insert(record: Record) =
     let rev = _db.RevisionServer
-    let recordPointer =
-      _db.Storage.Store(record)
     /// Add auto-increment field.
     let nextId = _recordPointersSource.Length / _recordLength
     let recordPointer =
-      match _schema.KeyFields with
-      | Id -> Array.append [| PInt nextId |] recordPointer
-      | _ -> recordPointer
+      Array.append [| PInt nextId |] (_db.Storage.Store(record))
     /// TODO: Runtime type validation.
     assert (recordPointer.Length = _fields.Length)
     lock _db.SyncRoot (fun () ->

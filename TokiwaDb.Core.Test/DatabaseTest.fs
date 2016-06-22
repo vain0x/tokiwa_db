@@ -29,8 +29,7 @@ module DatabaseTest =
       let persons =
         let schema =
           {
-            KeyFields = Id
-            NonkeyFields = [| Field.str "name"; Field.int "age" |]
+            Fields = [| Field.str "name"; Field.int "age" |]
           }
         in db.CreateTable("persons", schema)
 

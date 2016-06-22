@@ -39,15 +39,9 @@ module Types =
   type Field =
     | Field         of Name * ValueType
 
-  type KeyFields =
-    /// Auto-increment unique integer.
-    | Id
-    | KeyFields     of array<Field>
-
   type TableSchema =
     {
-      KeyFields     : KeyFields
-      NonkeyFields  : array<Field>
+      Fields        : array<Field>
     }
 
   type Record =

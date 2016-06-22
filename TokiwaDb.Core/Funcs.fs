@@ -43,12 +43,7 @@ module RecordPointer =
 
 module TableSchema =
   let toFields (schema: TableSchema) =
-    let keyFields =
-      match schema.KeyFields with
-      | Id -> [| Field ("id", TInt) |]
-      | KeyFields keyFields -> keyFields
-    in
-      Array.append keyFields schema.NonkeyFields
+    Array.append [| Field ("id", TInt) |] schema.Fields
 
 module Mortal =
   let maxLifeSpan =
