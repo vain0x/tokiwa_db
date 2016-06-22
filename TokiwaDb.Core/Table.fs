@@ -3,7 +3,7 @@
 open System
 open System.IO
 
-type StreamTable(_db: Database, _name: Name, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
@@ -67,10 +67,8 @@ type StreamTable(_db: Database, _name: Name, _schema: TableSchema, _indexes: arr
           yield rp.Value
     }
 
-  new (db, name, schema, source) =
-    StreamTable(db, name, schema, [||], source)
-
-  override this.Name = _name
+  new (db, schema, source) =
+    StreamTable(db, schema, [||], source)
 
   override this.Schema = _schema
 

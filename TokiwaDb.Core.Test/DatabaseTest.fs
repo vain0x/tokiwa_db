@@ -22,9 +22,10 @@ module DatabaseTest =
       let persons =
         let schema =
           {
+            Name = "persons"
             Fields = [| Field.string "name"; Field.int "age" |]
           }
-        in db.CreateTable("persons", schema)
+        in db.CreateTable(schema)
 
       let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]

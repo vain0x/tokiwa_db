@@ -19,6 +19,7 @@ module TableTest =
   let insertTest =
     let schema =
       {
+        Name = "persons"
         Fields =
           [|
             Field.string "name"
@@ -26,7 +27,7 @@ module TableTest =
           |]
       }
     let persons =
-      testDb.CreateTable("persons", schema)
+      testDb.CreateTable(schema)
     for record in testData do
       persons.Insert(record)
     test {
@@ -90,13 +91,14 @@ module TableTest =
     test {
       let schema =
         {
+          Name = "persons2"
           Fields =
             [| Field.string "name"; Field.int "age" |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
-        testDb.CreateTable("persons2", schema, [| [| 1 |] |])
+        testDb.CreateTable(schema, [| [| 1 |] |])
       let () =
         persons2.Insert([| String "Miku"; Int 16L |])
         persons2.Insert([| String "Yukari"; Int 18L |])

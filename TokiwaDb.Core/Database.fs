@@ -31,7 +31,7 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
       else None
       )
 
-  override this.CreateTable(name, schema, fieldIndexesList) =
+  override this.CreateTable(schema, fieldIndexesList) =
     let revisionId =
       _rev.Next()
     let indexes =
@@ -39,13 +39,13 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
         StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
         )
     let table =
-      StreamTable(this :> Database, name, schema, indexes, new MemoryStreamSource()) :> Table
+      StreamTable(this :> Database, schema, indexes, new MemoryStreamSource()) :> Table
     let () =
       _tables <- (table |> Mortal.create revisionId) :: _tables
     in table
 
-  override this.CreateTable(name, schema) =
-    this.CreateTable(name, schema, [||])
+  override this.CreateTable(schema) =
+    this.CreateTable(schema, [||])
 
   override this.DropTable(name) =
     let revisionId =
@@ -124,7 +124,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
                   let file = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
                   in StreamHashTableIndex(fieldIndexes, FileStreamSource(file)))
               let streamSource      = FileStreamSource(tableFile)
-              in StreamTable(this, name, schema, streamSource)
+              in StreamTable(this, schema, streamSource)
               ))
         else None
         )
@@ -159,7 +159,8 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       else None
       )
 
-  override this.CreateTable(name: string, schema: TableSchema, fieldIndexesList) =
+  override this.CreateTable(schema: TableSchema, fieldIndexesList) =
+    let name = schema.Name
     if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
     else
@@ -181,15 +182,15 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       /// Create table file.
       let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
       let tableSource     = FileStreamSource(tableFile)
-      let table           = StreamTable(this, name, schema, tableSource)
+      let table           = StreamTable(this, schema, tableSource)
       tableFile |> FileInfo.createNew
       /// Add table.
       _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
       /// Return the new table.
       table :> Table
 
-  override this.CreateTable(name: string, schema: TableSchema) =
-    this.CreateTable(name, schema, [||])
+  override this.CreateTable(schema: TableSchema) =
+    this.CreateTable(schema, [||])
 
   override this.DropTable(name: string) =
     match _tables |> Map.tryFind name with

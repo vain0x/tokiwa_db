@@ -41,6 +41,7 @@ module Types =
 
   type TableSchema =
     {
+      Name          : Name
       Fields        : array<Field>
     }
 
@@ -87,7 +88,6 @@ module Types =
     abstract member Remove: RecordPointer -> bool
 
   type [<AbstractClass>] Table() =
-    abstract member Name: Name
     abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
@@ -98,6 +98,8 @@ module Types =
 
     abstract member Insert: Record -> unit
     abstract member Remove: Id -> option<Mortal<RecordPointer>>
+
+    member this.Name = this.Schema.Name
 
     interface IEnumerable<Id * Mortal<RecordPointer>> with
       member this.GetEnumerator() = this.ToSeq().GetEnumerator()
@@ -111,6 +113,6 @@ module Types =
     abstract member Storage: Storage
     abstract member Tables: RevisionId -> seq<Table>
 
-    abstract member CreateTable: Name * TableSchema -> Table
-    abstract member CreateTable: Name * TableSchema * array<array<int>> -> Table
+    abstract member CreateTable: TableSchema -> Table
+    abstract member CreateTable: TableSchema * array<array<int>> -> Table
     abstract member DropTable: Name -> bool
