@@ -14,12 +14,12 @@ module Database =
       match operation with
       | CreateTable schema ->
         this.CreateTable(schema) |> ignore
-      | InsertRecord (tableName, record) ->
+      | InsertRecords (tableName, records) ->
         this |> tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.Insert([| record |]))
-      | RemoveRecord (tableName, recordId) ->
+        |> Option.iter (fun table -> table.Insert(records))
+      | RemoveRecords (tableName, recordIds) ->
         this |> tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.Remove([| recordId |]) |> ignore)
+        |> Option.iter (fun table -> table.Remove(recordIds) |> ignore)
       | DropTable tableName ->
         this.DropTable(tableName) |> ignore
 

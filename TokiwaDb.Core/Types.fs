@@ -82,8 +82,8 @@ module Types =
 
   type Operation =
     | CreateTable         of TableSchema
-    | InsertRecord        of Name * Record
-    | RemoveRecord        of Name * Id
+    | InsertRecords       of Name * array<Record>
+    | RemoveRecords       of Name * array<Id>
     | DropTable           of Name
 
   type [<AbstractClass>] RevisionServer() =

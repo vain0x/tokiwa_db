@@ -123,9 +123,12 @@ module TableTest =
       let operations =
         [|
           CreateTable schema
-          InsertRecord (schema.Name, [| String "Ura Omote Lovers"; String "wowaka" |])
-          InsertRecord (schema.Name, [| String "Rollin' Girl"; String "wowaka" |])
-          RemoveRecord (schema.Name, 0L)
+          InsertRecords (schema.Name,
+            [|
+              [| String "Ura Omote Lovers"; String "wowaka" |]
+              [| String "Rollin' Girl"; String "wowaka" |]
+            |])
+          RemoveRecords (schema.Name, [| 0L |])
         |]
       let () = testDb.Perform(operations)
       let songs = testDb |> Database.tryFindLivingTable schema.Name
