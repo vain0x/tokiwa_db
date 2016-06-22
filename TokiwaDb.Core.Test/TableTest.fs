@@ -95,14 +95,12 @@ module TableTest =
         run body
       }
 
-  let deleteTest =
+  let removeTest =
     test {
       let previousRevisionId = rev.Current
-      let pred x =
-        match x with
-        | [| _; _; PInt age |] when age >= 20L -> true
-        | _ -> false
-      do persons.Delete(pred)
+      // Remove Yukari.
+      let actual = persons.Remove(1L) |> Option.map (fun rp -> rp.Value.[2])
+      do! actual |> assertEquals (PInt 18L |> Some)
       let actual = persons.Relation(testDb.RevisionServer.Current).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 2
       /// And the previous version is still available.
@@ -135,8 +133,8 @@ module TableTest =
       do! persons2.Indexes.Length |> assertEquals 1
       let index       = persons2.Indexes.[0]
       do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)
-      // Then remove.
+      // Then remove Miku.
       let () =
-        persons2.Delete(fun (recordPointer: RecordPointer) -> recordPointer.[0] = PInt 0L) |> ignore
+        persons2.Remove(0L) |> ignore
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
     }

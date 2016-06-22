@@ -103,8 +103,7 @@ module Types =
     abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
     abstract member Insert: Record -> unit
-    abstract member Delete: (RecordPointer -> bool) -> unit
-    abstract member Delete: (Record -> bool) -> unit
+    abstract member Remove: Id -> option<Mortal<RecordPointer>>
 
     interface IEnumerable<Id * Mortal<RecordPointer>> with
       member this.GetEnumerator() = this.ToSeq().GetEnumerator()
