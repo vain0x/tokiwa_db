@@ -27,8 +27,7 @@ module TableTest =
       }
     let persons =
       testDb.CreateTable(schema)
-    for record in testData do
-      persons.Insert(record)
+    let () = persons.Insert(testData |> List.toArray)
     test {
       let expected =
         testData
@@ -101,8 +100,11 @@ module TableTest =
       let persons2 =
         testDb.CreateTable(schema)
       let () =
-        persons2.Insert([| String "Miku"; Int 16L |])
-        persons2.Insert([| String "Yukari"; Int 18L |])
+        persons2.Insert
+          ([|
+            [| String "Miku"; Int 16L |]
+            [| String "Yukari"; Int 18L |]
+          |])
       do! persons2.Indexes.Length |> assertEquals 1
       let index       = persons2.Indexes.[0]
       do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)

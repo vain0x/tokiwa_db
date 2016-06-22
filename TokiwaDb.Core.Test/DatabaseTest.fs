@@ -29,7 +29,7 @@ module DatabaseTest =
       let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]
 
-      do persons.Insert(insertedRow)
+      do persons.Insert([| insertedRow |])
 
       savedRevision <- rev.Current
       return ()

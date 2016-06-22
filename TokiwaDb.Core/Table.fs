@@ -67,8 +67,6 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           yield rp.Value
     }
 
-  let _insertOne recordPointer =
-
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
 
@@ -118,17 +116,19 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       let revId     = rev.Next()
       let recordIds = recordIds |> Array.sort
       use stream    = _recordPointersSource.OpenReadWrite()
-
       in
-        _positionFromId recordId stream |> Option.bind (fun position ->
-          let _     = stream.Seek(position, SeekOrigin.Begin)
-          let record = stream |> _readRecordPointer
-          in
-            if (record |> Mortal.isAliveAt revId) then
-              stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              stream |> _kill revId
-              for index in _indexes do
-                index.Remove(index.Projection(record.Value)) |> ignore
-              record |> Mortal.kill revId |> Some
-            else None
-        ))
+        [|
+          for recordId in recordIds ->
+            _positionFromId recordId stream |> Option.bind (fun position ->
+              let _     = stream.Seek(position, SeekOrigin.Begin)
+              let record = stream |> _readRecordPointer
+              in
+                if (record |> Mortal.isAliveAt revId) then
+                  stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+                  stream |> _kill revId
+                  for index in _indexes do
+                    index.Remove(index.Projection(record.Value)) |> ignore
+                  record |> Mortal.kill revId |> Some
+                else None
+              )
+        |])

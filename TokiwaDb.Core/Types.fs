@@ -111,6 +111,9 @@ module Types =
 
     member this.Name = this.Schema.Name
 
+    member this.Remove(recordId) =
+      this.Remove([| recordId |]).[0]
+
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj
 
