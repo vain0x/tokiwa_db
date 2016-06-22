@@ -105,10 +105,6 @@ module Types =
 
     member this.Name = this.Schema.Name
 
-    interface IEnumerable<Id * Mortal<RecordPointer>> with
-      member this.GetEnumerator() = this.ToSeq().GetEnumerator()
-      member this.GetEnumerator() = (this :> IEnumerable<Id * Mortal<RecordPointer>>).GetEnumerator() :> IEnumerator
-
   and [<AbstractClass>] Database() =
     abstract member SyncRoot: obj
 
