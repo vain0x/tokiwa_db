@@ -50,12 +50,6 @@ module TableSchema =
     in
       Array.append keyFields schema.NonkeyFields
 
-  let readFromStream (stream: Stream) =
-    stream |> Stream.readToEnd |> Yaml.load<TableSchema>
-
-  let writeToStream (stream: Stream) schema =
-    stream |> Stream.writeString (schema |> Yaml.dump<TableSchema>)
-
 module Mortal =
   let maxLifeSpan =
     Int64.MaxValue
