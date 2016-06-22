@@ -47,13 +47,14 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
   let _allRecordPointers () =
     seq {
       let stream = _recordPointersSource.OpenRead()
-      while stream.Position < stream.Length do
-        yield stream |> _readRecordPointer
+      let length = stream.Length / _recordLength
+      for recordId in 0L..(length - 1L) do
+        yield (recordId, stream |> _readRecordPointer)
     }
 
   let _aliveRecordPointers (t: RevisionId) =
     seq {
-      for rp in _allRecordPointers () do
+      for (_, rp) in _allRecordPointers () do
         if rp |> Mortal.isAliveAt t then
           yield rp.Value
     }
@@ -69,6 +70,9 @@ type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<Ha
 
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
+
+  override this.ToSeq() =
+    _allRecordPointers ()
 
   override this.RecordById(id: Id) =
     use stream    = _recordPointersSource.OpenRead()

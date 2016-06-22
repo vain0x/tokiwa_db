@@ -8,6 +8,13 @@ module TableTest =
   let testDb = MemoryDatabase("testDb")
   let storage = testDb.Storage
   let rev = testDb.RevisionServer
+  
+  let testData =
+    [
+      [| String "Miku"; Int 16L |]
+      [| String "Yukari"; Int 18L |]
+      [| String "Kaito"; Int 20L |]
+    ]
 
   let ``Insert to table with AI key`` =
     let schema =
@@ -21,12 +28,6 @@ module TableTest =
       }
     let persons =
       testDb.CreateTable("persons", schema)
-    let testData =
-      [
-        [| String "Miku"; Int 16L |]
-        [| String "Yukari"; Int 18L |]
-        [| String "Kaito"; Int 20L |]
-      ]
     for record in testData do
       persons.Insert(record)
     test {
@@ -39,7 +40,7 @@ module TableTest =
         |> Seq.toList
       do! actual |> assertEquals expected
     }
-
+    
   let ``Insert to table with non-AI key`` =
     let schema =
       {
@@ -82,6 +83,17 @@ module TableTest =
       let actual = persons.RecordById(0L)
       do! actual |> Option.isSome |> assertPred
     }
+
+  let toSeqTest =
+    let body (expected, (recordId, recordPointer: Mortal<RecordPointer>)) =
+      test {
+        do! storage.Derefer(recordPointer.Value).[1..] |> assertEquals expected
+      }
+    in
+      parameterize {
+        source (persons.ToSeq() |> Seq.toList |> List.zip testData)
+        run body
+      }
 
   let deleteTest =
     test {
