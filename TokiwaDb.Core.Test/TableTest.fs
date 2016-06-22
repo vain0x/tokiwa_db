@@ -98,7 +98,7 @@ module TableTest =
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
-        testDb.CreateTable(schema, [| [| 1 |] |])
+        testDb.CreateTable(schema, [| HashTableIndexSchema [| 1 |] |])
       let () =
         persons2.Insert([| String "Miku"; Int 16L |])
         persons2.Insert([| String "Yukari"; Int 18L |])

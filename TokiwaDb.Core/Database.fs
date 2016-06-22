@@ -31,12 +31,14 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
       else None
       )
 
-  override this.CreateTable(schema, fieldIndexesList) =
+  override this.CreateTable(schema, indexSchemas) =
     let revisionId =
       _rev.Next()
     let indexes =
-      fieldIndexesList |> Array.map (fun fieldIndexes ->
-        StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
+      indexSchemas |> Array.map
+        (function
+        | HashTableIndexSchema fieldIndexes ->
+          StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
         )
     let table =
       StreamTable(this :> Database, schema, indexes, new MemoryStreamSource()) :> Table
@@ -159,7 +161,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       else None
       )
 
-  override this.CreateTable(schema: TableSchema, fieldIndexesList) =
+  override this.CreateTable(schema: TableSchema, indexSchemas) =
     let name = schema.Name
     if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
@@ -172,13 +174,15 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       schemaStream.Write(mortalSchema |> Yaml.dump)
       /// Create index files.
       let indexes         =
-        fieldIndexesList |> Array.mapi (fun i fieldIndexes ->
-          let indexFile   = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
-          let ()          = indexFile |> FileInfo.createNew
-          in StreamHashTableIndex(fieldIndexes, FileStreamSource(indexFile))
+        indexSchemas |> Array.mapi (fun i indexSchema ->
+          match indexSchema with
+          | HashTableIndexSchema fieldIndexes ->
+            let indexFile   = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
+            let ()          = indexFile |> FileInfo.createNew
+            in StreamHashTableIndex(fieldIndexes, FileStreamSource(indexFile))
           )
       let indexesFile     = FileInfo(Path.Combine(_tableDir.FullName, name + ".indexes"))
-      let ()              = File.WriteAllText(indexesFile.FullName, Yaml.dump fieldIndexesList)
+      let ()              = File.WriteAllText(indexesFile.FullName, Yaml.dump indexSchemas)
       /// Create table file.
       let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
       let tableSource     = FileStreamSource(tableFile)

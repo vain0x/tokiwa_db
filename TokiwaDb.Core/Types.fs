@@ -39,6 +39,9 @@ module Types =
   type Field =
     | Field         of Name * ValueType
 
+  type IndexSchema =
+    | HashTableIndexSchema      of array<int>
+
   type TableSchema =
     {
       Name          : Name
@@ -114,5 +117,5 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: TableSchema -> Table
-    abstract member CreateTable: TableSchema * array<array<int>> -> Table
+    abstract member CreateTable: TableSchema * array<IndexSchema> -> Table
     abstract member DropTable: Name -> bool
