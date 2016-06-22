@@ -112,7 +112,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
         let indexesFile = FileInfo(Path.ChangeExtension(schemaFile.FullName, ".indexes"))
         if tableFile.Exists then
           schemaFile |> FileInfo.readText
-          |> Yaml.tryLoad<Mortal<Schema>>
+          |> Yaml.tryLoad<Mortal<TableSchema>>
           |> Option.map (fun schema ->
             schema |> Mortal.map (fun schema ->
               let name              = Path.GetFileNameWithoutExtension(tableFile.Name)
@@ -159,7 +159,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       else None
       )
 
-  override this.CreateTable(name: string, schema: Schema, fieldIndexesList) =
+  override this.CreateTable(name: string, schema: TableSchema, fieldIndexesList) =
     if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
     else
@@ -188,7 +188,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       /// Return the new table.
       table :> Table
 
-  override this.CreateTable(name: string, schema: Schema) =
+  override this.CreateTable(name: string, schema: TableSchema) =
     this.CreateTable(name, schema, [||])
 
   override this.DropTable(name: string) =

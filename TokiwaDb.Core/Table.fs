@@ -3,11 +3,11 @@
 open System
 open System.IO
 
-type StreamTable(_db: Database, _name: Name, _schema: Schema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _name: Name, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
-    _schema |> Schema.toFields
+    _schema |> TableSchema.toFields
 
   let mutable _indexes =
     _indexes

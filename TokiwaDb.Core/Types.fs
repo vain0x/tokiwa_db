@@ -44,7 +44,7 @@ module Types =
     | Id
     | KeyFields     of array<Field>
 
-  type Schema =
+  type TableSchema =
     {
       KeyFields     : KeyFields
       NonkeyFields  : array<Field>
@@ -80,7 +80,7 @@ module Types =
       End: RevisionId
       Value: 'x
     }
-    
+
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: unit -> RevisionId
@@ -91,10 +91,10 @@ module Types =
 
     abstract member Insert: RecordPointer * Id -> unit
     abstract member Remove: RecordPointer -> bool
-    
+
   type [<AbstractClass>] Table() =
     abstract member Name: Name
-    abstract member Schema: Schema
+    abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
     abstract member Indexes: array<HashTableIndex>
@@ -117,6 +117,6 @@ module Types =
     abstract member Storage: Storage
     abstract member Tables: RevisionId -> seq<Table>
 
-    abstract member CreateTable: Name * Schema -> Table
-    abstract member CreateTable: Name * Schema * array<array<int>> -> Table
+    abstract member CreateTable: Name * TableSchema -> Table
+    abstract member CreateTable: Name * TableSchema * array<array<int>> -> Table
     abstract member DropTable: Name -> bool
