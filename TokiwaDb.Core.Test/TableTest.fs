@@ -64,7 +64,7 @@ module TableTest =
     }
 
   let toSeqTest =
-    let body (expected, (recordId, recordPointer: Mortal<RecordPointer>)) =
+    let body (expected, (recordPointer: Mortal<RecordPointer>)) =
       test {
         do! storage.Derefer(recordPointer.Value).[1..] |> assertEquals expected
       }
@@ -180,7 +180,7 @@ module TableTest =
       let _ =
         items.Remove([|0L|])
       let removeHasNotBeenPerformed () =
-        items.ToSeq() |> Seq.head |> snd |> Mortal.isAliveAt rev.Current
+        items.ToSeq() |> Seq.head |> Mortal.isAliveAt rev.Current
       do! removeHasNotBeenPerformed () |> assertPred
       let () =
         transaction.Rollback()
