@@ -13,7 +13,8 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     _indexes
 
   let _recordLength =
-    (_fields.LongLength + 2L) * 8L
+    // Count of fields + begin/end revision ids - record id.
+    (_fields.LongLength + 2L - 1L) * 8L
 
   let mutable _hardLength =
     _recordPointersSource.Length / _recordLength
@@ -34,12 +35,14 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     else None
 
   /// Read a record written at the current position.
+  /// NOTE: The value of ID isn't written.
   let _readRecordPointer (stream: Stream) =
     let beginRevision   = stream |> Stream.readInt64
     let endRevision     = stream |> Stream.readInt64
     let recordPointer   =
       [|
-        for Field (_, type') in _fields do
+        yield (stream.Position / _recordLength |> PInt)
+        for Field (_, type') in _fields |> Seq.skip 1 do
           yield stream |> Stream.readInt64 |> ValuePointer.ofUntyped type'
       |]
     in
@@ -67,12 +70,12 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       let stream = _recordPointersSource.OpenRead()
       let length = _length ()
       for recordId in 0L..(length - 1L) do
-        yield (recordId, stream |> _readRecordPointer)
+        yield stream |> _readRecordPointer
     }
 
   let _aliveRecordPointers (t: RevisionId) =
     seq {
-      for (_, rp) in _allRecordPointers () do
+      for rp in _allRecordPointers () do
         if rp |> Mortal.isAliveAt t then
           yield rp.Value
     }
@@ -105,9 +108,11 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     let ()              =
       for record in records do
         let recordPointer =
-          Array.append [| PInt _hardLength |] (_db.Storage.Store(record))
+          _db.Storage.Store(record)
+        let recordPointerWithId =
+          Array.append [| PInt _hardLength |] recordPointer
         for index in _indexes do
-          index.Insert(index.Projection(recordPointer), _hardLength)
+          index.Insert(index.Projection(recordPointerWithId), _hardLength)
         stream |> _writeRecordPointer revId recordPointer
         _hardLength <- _hardLength + 1L
     in ()
