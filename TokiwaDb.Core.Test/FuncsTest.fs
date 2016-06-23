@@ -27,7 +27,9 @@ module RevisionServerTest =
     test {
       let rs = MemoryRevisionServer()
       do! rs.Current |> assertEquals 0L
-      do! rs.Next() |> assertEquals 1L
-      do! rs.Next() |> assertEquals 2L
+      do! rs.Next |> assertEquals 1L
+      do! rs.Increase() |> assertEquals 1L
+      do! rs.Next |> assertEquals 2L
+      do! rs.Increase() |> assertEquals 2L
       do! rs.Current |> assertEquals 2L
     }

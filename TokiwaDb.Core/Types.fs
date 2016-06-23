@@ -99,7 +99,8 @@ module Types =
 
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
-    abstract member Next: unit -> RevisionId
+    abstract member Next: RevisionId
+    abstract member Increase: unit -> RevisionId
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer

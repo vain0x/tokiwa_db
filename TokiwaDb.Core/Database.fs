@@ -76,7 +76,7 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
 
   override this.CreateTable(schema) =
     let revisionId =
-      _rev.Next()
+      _rev.Increase()
     let indexes =
       schema.Indexes |> Array.map
         (function
@@ -91,7 +91,7 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
 
   override this.DropTable(name) =
     let revisionId =
-      _rev.Next()
+      _rev.Increase()
     let (droppedTables, tables') =
       _tables |> List.partition (fun table -> table.Value.Name = name)
     let droppedTables' =
@@ -217,7 +217,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
     if _tables |> Map.containsKey name then
       failwithf "Table name '%s' has been already taken." name
     else
-      let revisionId      = _revisionServer.Next()
+      let revisionId      = _revisionServer.Increase()
       /// Create schema file.
       let mortalSchema    = schema |> Mortal.create revisionId
       let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
@@ -245,7 +245,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
   override this.DropTable(name: string) =
     match _tables |> Map.tryFind name with
     | Some table ->
-      let revisionId      = _revisionServer.Next()
+      let revisionId      = _revisionServer.Increase()
       /// Kill schema.
       let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
       let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))

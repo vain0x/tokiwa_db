@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Threading
 open FsYaml
 
 module ValuePointer =
@@ -106,6 +107,8 @@ type MemoryRevisionServer(_id: RevisionId) =
   override this.Current =
     _id
 
-  override this.Next() =
-    _id <- _id + 1L
-    _id
+  override this.Next =
+    _id + 1L
+
+  override this.Increase() =
+    Interlocked.Increment(& _id)
