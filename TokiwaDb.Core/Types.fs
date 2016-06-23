@@ -94,7 +94,7 @@ module Types =
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int
     abstract member Operations: seq<Operation>
-    abstract member Rebegin: unit -> unit
+    abstract member Begin: unit -> unit
     abstract member Add: Operation -> unit
     abstract member Commit: unit -> unit
     abstract member Rollback: unit -> unit
@@ -132,9 +132,7 @@ module Types =
     abstract member Name: string
 
     abstract member RevisionServer: RevisionServer
-    abstract member Transaction: option<Transaction>
-    abstract member BeginTransaction: unit -> Transaction
-    abstract member EndTransaction: unit -> unit
+    abstract member Transaction: Transaction
 
     abstract member Storage: Storage
 

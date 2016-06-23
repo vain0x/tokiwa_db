@@ -10,18 +10,17 @@ module Database =
       this.TryFindLivingTable(name, this.RevisionServer.Current)
 
   let transact (f: unit -> 'x) (this: Database) =
-    try
-      let transaction = this.BeginTransaction()
+    let () =
+      this.Transaction.Begin()
+    in
       try
         let x = f ()
-        let () = transaction.Commit()
+        let () = this.Transaction.Commit()
         in x
       with
       | _ ->
-        transaction.Rollback()
+        this.Transaction.Rollback()
         reraise ()
-    finally
-      this.EndTransaction()
 
   let perform (operations: array<Operation>) (this: Database) =
     for operation in operations do
@@ -37,12 +36,12 @@ module Database =
       | DropTable tableName ->
         this.DropTable(tableName) |> ignore
 
-type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) =
+type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) as this =
   inherit Database()
 
   let _syncRoot = new obj()
 
-  let mutable _transaction = (None: option<Transaction>)
+  let _transaction = MemoryTransaction(this.Perform) :> Transaction
 
   let mutable _tables = _tables
 
@@ -65,23 +64,6 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
 
   override this.Transaction =
     _transaction
-    
-  override this.BeginTransaction() =
-    match _transaction with
-    | Some transaction ->
-      let () = transaction.Rebegin()
-      in transaction
-    | None ->
-      let transaction = MemoryTransaction(this.Perform) :> Transaction
-      let () = _transaction <- Some transaction
-      in transaction
-
-  override this.EndTransaction() =
-    match _transaction with
-    | Some t ->
-      if t.BeginCount = 0 then
-        _transaction <- None
-    | None -> failwith "Can't end transaction before beginning it."
 
   override this.Storage =
     _storage
@@ -136,7 +118,7 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
 
   let _syncRoot = new obj()
 
-  let mutable _transaction = (None: option<Transaction>)
+  let _transaction = MemoryTransaction(this.Perform) :> Transaction
 
   let _tableDir = DirectoryInfo(Path.Combine(_dir.FullName, ".table"))
   let _storageFile = FileInfo(Path.Combine(_dir.FullName, ".storage"))
@@ -218,23 +200,6 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
 
   override this.Transaction =
     _transaction
-    
-  override this.BeginTransaction() =
-    match _transaction with
-    | Some transaction ->
-      let () = transaction.Rebegin()
-      in transaction
-    | None ->
-      let transaction = MemoryTransaction(this.Perform) :> Transaction
-      let () = _transaction <- Some transaction
-      in transaction
-
-  override this.EndTransaction() =
-    match _transaction with
-    | Some t ->
-      if t.BeginCount = 0 then
-        _transaction <- None
-    | None -> failwith "Can't end transaction before beginning it."
 
   override this.Storage =
     _storage :> Storage

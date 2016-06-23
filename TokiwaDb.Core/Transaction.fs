@@ -5,25 +5,38 @@ open System.Threading
 type MemoryTransaction(_perform: array<Operation> -> unit) =
   inherit Transaction()
 
-  let mutable _beginCount = 1
-  let mutable _operations = ResizeArray<Operation>()
+  let mutable _operationsStack = ([]: list<ResizeArray<Operation>>)
 
   override this.BeginCount =
-    _beginCount
+    _operationsStack |> List.length
 
   override this.Operations =
-    _operations :> seq<Operation>
+    _operationsStack |> Seq.collect id
 
-  override this.Rebegin() =
-    Interlocked.Increment(& _beginCount) |> ignore
+  override this.Begin() =
+    _operationsStack <- ResizeArray<Operation>() :: _operationsStack
 
   override this.Add(operation) =
-    _operations.Add(operation)
+    match _operationsStack with
+    | [] ->
+      _perform [| operation |]
+    | operations :: _ ->
+      operations.Add(operation)
 
   override this.Commit() =
-    if Interlocked.Decrement(& _beginCount) = 0 then
-      _operations.ToArray() |> _perform
+    match _operationsStack with
+    | [] ->
+      failwith "Can't commit before beginning a transaction."
+    | [operations] ->
+      operations.ToArray() |> _perform
+      _operationsStack <- []
+    | operations :: (operations' :: _ as stack) ->
+      operations'.AddRange(operations)
+      _operationsStack <- stack
 
   override this.Rollback() =
-    if Interlocked.Decrement(& _beginCount) = 0 then
-      _operations.Clear()
+    match _operationsStack with
+    | [] ->
+      failwith "Can't rollback before beginning a transaction."
+    | operations :: stack ->
+      _operationsStack <- stack

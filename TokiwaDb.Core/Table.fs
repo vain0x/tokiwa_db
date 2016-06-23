@@ -20,14 +20,12 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   let _length () =
     let countScheduledInserts =
-      _db.Transaction |> Option.map (fun transaction ->
-        transaction.Operations |> Seq.sumBy (fun operation ->
-          match operation with
-          | InsertRecords (tableName, records) when tableName = _schema.Name ->
-            records.LongLength
-          | _ -> 0L
-          ))
-      |> Option.getOr 0L
+      _db.Transaction.Operations |> Seq.sumBy (fun operation ->
+        match operation with
+        | InsertRecords (tableName, records) when tableName = _schema.Name ->
+          records.LongLength
+        | _ -> 0L
+        )
     in _hardLength + countScheduledInserts
 
   let _positionFromId (recordId: Id) =
@@ -125,11 +123,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
         )
     let () =
       if errors |> Array.isEmpty then
-        match _db.Transaction with
-        | Some transaction ->
-          transaction.Add(InsertRecords (this.Name, records))
-        | None ->
-          this.PerformInsert(records)
+        _db.Transaction.Add(InsertRecords (this.Name, records))
     in errors
 
   override this.PerformRemove(recordIds) =
@@ -157,9 +151,5 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     let errors =
       invalidIds |> Array.map Error.InvalidId
     let () =
-      match _db.Transaction with
-      | Some transaction ->
-        transaction.Add(RemoveRecords (this.Name, recordIds))
-      | None ->
-        this.PerformRemove(recordIds)
+      _db.Transaction.Add(RemoveRecords (this.Name, recordIds))
     in errors

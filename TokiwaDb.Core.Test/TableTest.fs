@@ -174,8 +174,8 @@ module TableTest =
       do! items.ToSeq() |> Seq.length |> assertEquals 2
 
       // Rollback test.
-      let transaction =
-        testDb.BeginTransaction()
+      let transaction = testDb.Transaction
+      let () = transaction.Begin()
       let _ =
         items.Remove([|0L|])
       let removeHasNotBeenPerformed () =
@@ -183,21 +183,20 @@ module TableTest =
       do! removeHasNotBeenPerformed () |> assertPred
       let () =
         transaction.Rollback()
-        testDb.EndTransaction()
       do! removeHasNotBeenPerformed () |> assertPred
 
       // Nested transaction.
-      let transaction1 = testDb.BeginTransaction()
+      let () = transaction.Begin()
       let _ =
         items.Insert([| [| String "Kaito"; String "Ices" |] |])
-      let transaction2 = testDb.BeginTransaction()
+      let () = transaction.Begin()
       let _ =
         items.Remove([|0L|])
       let () =
-        // Rollback the internal transaction, which discards the remove but not inserts.
-        transaction2.Rollback()
-      let () = testDb.EndTransaction()
-      let () = testDb.EndTransaction()
+        // Rollback the internal transaction, which discards the remove but not the insert.
+        transaction.Rollback()
+      let () =
+        transaction.Commit()
       do! removeHasNotBeenPerformed () |> assertPred
       do! items.ToSeq() |> Seq.length |> assertEquals 3
       return ()
