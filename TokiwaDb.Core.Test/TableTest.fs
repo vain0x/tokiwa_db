@@ -138,9 +138,10 @@ module TableTest =
         { TableSchema.empty "songs" with
             Fields = [| Field.string "title"; Field.string "composer" |]
         }
+      let songs =
+        testDb.CreateTable(schema)
       let operations =
         [|
-          CreateTable schema
           InsertRecords (schema.Name,
             [|
               [| String "Ura Omote Lovers"; String "wowaka" |]
@@ -149,9 +150,6 @@ module TableTest =
           RemoveRecords (schema.Name, [| 0L |])
         |]
       let () = testDb.Perform(operations)
-      let songs = testDb |> Database.tryFindLivingTable schema.Name
-      do! songs |> Option.isSome |> assertPred
-      let songs = songs |> Option.get
       do! songs.Relation(rev.Current).RecordPointers |> Seq.length |> assertEquals 1
     }
 

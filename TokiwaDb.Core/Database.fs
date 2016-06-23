@@ -25,16 +25,12 @@ module Database =
   let perform (operations: array<Operation>) (this: Database) =
     for operation in operations do
       match operation with
-      | CreateTable schema ->
-        this.CreateTable(schema) |> ignore
       | InsertRecords (tableName, records) ->
         this |> tryFindLivingTable tableName
         |> Option.iter (fun table -> table.PerformInsert(records))
       | RemoveRecords (tableName, recordIds) ->
         this |> tryFindLivingTable tableName
         |> Option.iter (fun table -> table.PerformRemove(recordIds))
-      | DropTable tableName ->
-        this.DropTable(tableName) |> ignore
 
 type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) as this =
   inherit Database()

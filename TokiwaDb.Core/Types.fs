@@ -86,10 +86,8 @@ module Types =
     | InvalidId           of Id
 
   type Operation =
-    | CreateTable         of TableSchema
     | InsertRecords       of Name * array<Record>
     | RemoveRecords       of Name * array<Id>
-    | DropTable           of Name
 
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int
