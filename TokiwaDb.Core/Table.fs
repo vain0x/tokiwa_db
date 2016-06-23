@@ -15,11 +15,23 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let _recordLength =
     (_fields.LongLength + 2L) * 8L
 
-  let _length (stream: Stream) =
-    stream.Length / _recordLength
+  let mutable _hardLength =
+    _recordPointersSource.Length / _recordLength
 
-  let _positionFromId (recordId: Id) (stream: Stream) =
-    if 0L <= recordId && recordId < (_length stream)
+  let _length () =
+    let countScheduledInserts =
+      _db.Transaction |> Option.map (fun transaction ->
+        transaction.Operations |> Seq.sumBy (fun operation ->
+          match operation with
+          | InsertRecords (tableName, records) when tableName = _schema.Name ->
+            records.LongLength
+          | _ -> 0L
+          ))
+      |> Option.getOr 0L
+    in _hardLength + countScheduledInserts
+
+  let _positionFromId (recordId: Id) =
+    if 0L <= recordId && recordId < _length ()
     then recordId * _recordLength |> Some
     else None
 
@@ -55,7 +67,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let _allRecordPointers () =
     seq {
       let stream = _recordPointersSource.OpenRead()
-      let length = _length stream
+      let length = _length ()
       for recordId in 0L..(length - 1L) do
         yield (recordId, stream |> _readRecordPointer)
     }
@@ -81,56 +93,73 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     _allRecordPointers ()
 
   override this.RecordById(recordId: Id) =
-    use stream    = _recordPointersSource.OpenRead()
-    in
-      _positionFromId recordId stream |> Option.map (fun position ->
-        let _       = stream.Seek(position, SeekOrigin.Begin)
-        in stream |> _readRecordPointer
-        )
+    _positionFromId recordId |> Option.map (fun position ->
+      use stream    = _recordPointersSource.OpenRead()
+      let _       = stream.Seek(position, SeekOrigin.Begin)
+      in stream |> _readRecordPointer
+      )
 
   override this.Database = _db
 
-  override this.Insert(records: array<Record>) =
-    let rev = _db.RevisionServer
-    /// Add auto-increment field.
+  override this.PerformInsert(records: array<Record>) =
     lock _db.SyncRoot (fun () ->
-      let _               = rev.Next()
+      let revId           = _db.RevisionServer.Next()
       use stream          = _recordPointersSource.OpenAppend()
-      let nextId          = _length stream |> ref
-      in
-        [|
-          for record in records do
-            /// TODO: Runtime type validation.
-            if record.Length + 1 <> _fields.Length then
-              yield Error.WrongFieldsCount (_schema.Fields, record)
-            else
-              let recordPointer =
-                Array.append [| PInt (! nextId) |] (_db.Storage.Store(record))
-              for index in _indexes do
-                index.Insert(index.Projection(recordPointer), ! nextId)
-              stream |> _writeRecordPointer rev.Current recordPointer
-              nextId := (! nextId) + 1L
-        |])
+      let ()              =
+        for record in records do
+          let recordPointer =
+            Array.append [| PInt _hardLength |] (_db.Storage.Store(record))
+          for index in _indexes do
+            index.Insert(index.Projection(recordPointer), _hardLength)
+          stream |> _writeRecordPointer revId recordPointer
+          _hardLength <- _hardLength + 1L
+      in ())
+
+  override this.Insert(records: array<Record>) =
+    let (errors, records) =
+      records |> Array.partitionMap (fun record ->
+        /// TODO: Runtime type validation.
+        if record.Length + 1 <> _fields.Length then
+          Error.WrongFieldsCount (_schema.Fields, record) |> Some
+        else None
+        )
+    let () =
+      if errors |> Array.isEmpty then
+        match _db.Transaction with
+        | Some transaction ->
+          transaction.Add(InsertRecords (this.Name, records))
+        | None ->
+          this.PerformInsert(records)
+    in errors
+
+  override this.PerformRemove(recordIds) =
+    lock _db.SyncRoot (fun () ->
+      use stream    = _recordPointersSource.OpenReadWrite()
+      let revId     = _db.RevisionServer.Next()
+      let ()        =
+        for recordId in recordIds |> Array.sort do
+          match _positionFromId recordId with
+          | None -> ()
+          | Some position ->
+            let _         = stream.Seek(position, SeekOrigin.Begin)
+            let record    = stream |> _readRecordPointer
+            in
+              if (record |> Mortal.isAliveAt revId) then
+                stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+                stream |> _kill revId
+                for index in _indexes do
+                  index.Remove(index.Projection(record.Value)) |> ignore
+      in ())
 
   override this.Remove(recordIds) =
-    lock _db.SyncRoot (fun () ->
-      let rev       = _db.RevisionServer
-      let revId     = rev.Next()
-      let recordIds = recordIds |> Array.sort
-      use stream    = _recordPointersSource.OpenReadWrite()
-      in
-        [|
-          for recordId in recordIds do
-            match _positionFromId recordId stream with
-            | None ->
-              yield Error.InvalidId recordId
-            | Some position ->
-              let _     = stream.Seek(position, SeekOrigin.Begin)
-              let record = stream |> _readRecordPointer
-              in
-                if (record |> Mortal.isAliveAt revId) then
-                  stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-                  stream |> _kill revId
-                  for index in _indexes do
-                    index.Remove(index.Projection(record.Value)) |> ignore
-        |])
+    let (recordIds, invalidIds) =
+      recordIds |> Array.partition (fun recordId -> _positionFromId recordId |> Option.isSome)
+    let errors =
+      invalidIds |> Array.map Error.InvalidId
+    let () =
+      match _db.Transaction with
+      | Some transaction ->
+        transaction.Add(RemoveRecords (this.Name, recordIds))
+      | None ->
+        this.PerformRemove(recordIds)
+    in errors

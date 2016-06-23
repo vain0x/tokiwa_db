@@ -53,6 +53,7 @@
     <Compile Include="Relation.fs" />
     <Compile Include="HashTableIndex.fs" />
     <Compile Include="Table.fs" />
+    <Compile Include="Transaction.fs" />
     <Compile Include="Database.fs" />
   </ItemGroup>
   <PropertyGroup>

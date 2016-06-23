@@ -5,6 +5,12 @@ module Hash =
   let combine seed hash =
     seed ^^^ hash + 0x9e3779b9L + (seed <<< 6) + (seed >>> 2)
 
+module Option =
+  let getOr (x: 'x): option<'x> -> 'x =
+    function
+    | Some x -> x
+    | None -> x
+
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
 

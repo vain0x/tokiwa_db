@@ -154,3 +154,51 @@ module TableTest =
       let songs = songs |> Option.get
       do! songs.Relation(rev.Current).RecordPointers |> Seq.length |> assertEquals 1
     }
+
+  let transactionTest =
+    test {
+      let schema =
+        { TableSchema.empty "items" with
+            Fields = [| Field.string "vocaloid"; Field.string "item" |]
+        }
+      let items = testDb.CreateTable(schema)
+      // Commit test.
+      let _ =
+        testDb |> Database.transact (fun () ->
+          items.Insert
+            ([|
+              [| String "Miku"; String "Green onions" |]
+              [| String "Yukari"; String "Chainsaws" |]
+            |])
+          )
+      do! items.ToSeq() |> Seq.length |> assertEquals 2
+
+      // Rollback test.
+      let transaction =
+        testDb.BeginTransaction()
+      let _ =
+        items.Remove([|0L|])
+      let removeHasNotBeenPerformed () =
+        items.ToSeq() |> Seq.head |> snd |> Mortal.isAliveAt rev.Current
+      do! removeHasNotBeenPerformed () |> assertPred
+      let () =
+        transaction.Rollback()
+        testDb.EndTransaction()
+      do! removeHasNotBeenPerformed () |> assertPred
+
+      // Nested transaction.
+      let transaction1 = testDb.BeginTransaction()
+      let _ =
+        items.Insert([| [| String "Kaito"; String "Ices" |] |])
+      let transaction2 = testDb.BeginTransaction()
+      let _ =
+        items.Remove([|0L|])
+      let () =
+        // Rollback the internal transaction, which discards the remove but not inserts.
+        transaction2.Rollback()
+      let () = testDb.EndTransaction()
+      let () = testDb.EndTransaction()
+      do! removeHasNotBeenPerformed () |> assertPred
+      do! items.ToSeq() |> Seq.length |> assertEquals 3
+      return ()
+    }
