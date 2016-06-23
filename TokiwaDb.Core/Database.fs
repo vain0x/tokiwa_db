@@ -68,31 +68,35 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
     _tryFindLivingTable t tableName
 
   override this.CreateTable(schema) =
-    let revisionId =
-      _rev.Increase()
-    let indexes =
-      schema.Indexes |> Array.map
-        (function
-        | HashTableIndexSchema fieldIndexes ->
-          StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
-        )
-    let table =
-      StreamTable(this :> Database, schema, indexes, new MemoryStreamSource()) :> Table
-    let () =
-      _tables <- (table |> Mortal.create revisionId) :: _tables
-    in table
+    lock this.Transaction.SyncRoot (fun () ->
+      let revisionId =
+        _rev.Increase()
+      let indexes =
+        schema.Indexes |> Array.map
+          (function
+          | HashTableIndexSchema fieldIndexes ->
+            StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
+          )
+      let table =
+        StreamTable(this :> Database, schema, indexes, new MemoryStreamSource()) :> Table
+      let () =
+        _tables <- (table |> Mortal.create revisionId) :: _tables
+      in table
+      )
 
   override this.DropTable(name) =
-    let revisionId =
-      _rev.Increase()
-    let (droppedTables, tables') =
-      _tables |> List.partition (fun table -> table.Value.Name = name)
-    let droppedTables' =
-      droppedTables |> List.map (Mortal.kill revisionId)
-    let () =
-      _tables <- droppedTables' @ tables'
-    in
-      droppedTables |> List.isEmpty |> not
+    lock this.Transaction.SyncRoot (fun () ->
+      let revisionId =
+        _rev.Increase()
+      let (droppedTables, tables') =
+        _tables |> List.partition (fun table -> table.Value.Name = name)
+      let droppedTables' =
+        droppedTables |> List.map (Mortal.kill revisionId)
+      let () =
+        _tables <- droppedTables' @ tables'
+      in
+        droppedTables |> List.isEmpty |> not
+      )
 
   override this.Perform(operations) =
     this |> Database.perform operations
@@ -198,50 +202,54 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
     |> Option.map (fun table -> table :> Table)
 
   override this.CreateTable(schema: TableSchema) =
-    let name = schema.Name
-    if _tables |> Map.containsKey name then
-      failwithf "Table name '%s' has been already taken." name
-    else
-      let revisionId      = _revisionServer.Increase()
-      /// Create schema file.
-      let mortalSchema    = schema |> Mortal.create revisionId
-      let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
-      use schemaStream    = schemaFile.CreateText()
-      schemaStream.Write(mortalSchema |> Yaml.dump)
-      /// Create index files.
-      let indexes         =
-        schema.Indexes |> Array.mapi (fun i indexSchema ->
-          match indexSchema with
-          | HashTableIndexSchema fieldIndexes ->
-            let indexFile   = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
-            let ()          = indexFile |> FileInfo.createNew
-            in StreamHashTableIndex(fieldIndexes, FileStreamSource(indexFile))
-          )
-      /// Create table file.
-      let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
-      let tableSource     = FileStreamSource(tableFile)
-      let table           = StreamTable(this, schema, tableSource)
-      tableFile |> FileInfo.createNew
-      /// Add table.
-      _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
-      /// Return the new table.
-      table :> Table
+    lock this.Transaction.SyncRoot (fun () ->
+      let name = schema.Name
+      if _tables |> Map.containsKey name then
+        failwithf "Table name '%s' has been already taken." name
+      else
+        let revisionId      = _revisionServer.Increase()
+        /// Create schema file.
+        let mortalSchema    = schema |> Mortal.create revisionId
+        let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
+        use schemaStream    = schemaFile.CreateText()
+        schemaStream.Write(mortalSchema |> Yaml.dump)
+        /// Create index files.
+        let indexes         =
+          schema.Indexes |> Array.mapi (fun i indexSchema ->
+            match indexSchema with
+            | HashTableIndexSchema fieldIndexes ->
+              let indexFile   = FileInfo(Path.Combine(_tableDir.FullName, sprintf "%s.%d.ht_index" name i))
+              let ()          = indexFile |> FileInfo.createNew
+              in StreamHashTableIndex(fieldIndexes, FileStreamSource(indexFile))
+            )
+        /// Create table file.
+        let tableFile       = FileInfo(Path.Combine(_tableDir.FullName, name + ".table"))
+        let tableSource     = FileStreamSource(tableFile)
+        let table           = StreamTable(this, schema, tableSource)
+        tableFile |> FileInfo.createNew
+        /// Add table.
+        _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
+        /// Return the new table.
+        table :> Table
+      )
 
   override this.DropTable(name: string) =
-    match _tables |> Map.tryFind name with
-    | Some table ->
-      let revisionId      = _revisionServer.Increase()
-      /// Kill schema.
-      let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
-      let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
-      use stream          = schemaFile.CreateText()
-      stream.Write(mortalSchema |> Yaml.dump)
-      /// Kill table.
-      _tables <- _tables |> Map.add name (table |> Mortal.kill revisionId)
-      /// Return true, which indicates some table is dropped.
-      true
-    | None ->
-      false
+    lock this.Transaction.SyncRoot (fun () ->
+      match _tables |> Map.tryFind name with
+      | Some table ->
+        let revisionId      = _revisionServer.Increase()
+        /// Kill schema.
+        let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
+        let schemaFile      = FileInfo(Path.Combine(_tableDir.FullName, name + ".schema"))
+        use stream          = schemaFile.CreateText()
+        stream.Write(mortalSchema |> Yaml.dump)
+        /// Kill table.
+        _tables <- _tables |> Map.add name (table |> Mortal.kill revisionId)
+        /// Return true, which indicates some table is dropped.
+        true
+      | None ->
+        false
+      )
 
   override this.Perform(operations) =
     this |> Database.perform operations
