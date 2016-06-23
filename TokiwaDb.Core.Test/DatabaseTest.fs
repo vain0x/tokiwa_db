@@ -17,7 +17,7 @@ module DatabaseTest =
   let createTest =
     test {
       use db      = new DirectoryDatabase(repo)
-      let rev     = db.RevisionServer
+      let rev     = db.Transaction.RevisionServer
 
       let persons =
         let schema =
@@ -29,7 +29,7 @@ module DatabaseTest =
       let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]
 
-      do persons.Insert(insertedRow)
+      let _ = persons.Insert([| insertedRow |])
 
       savedRevision <- rev.Current
       return ()
@@ -38,9 +38,8 @@ module DatabaseTest =
   let reopenTest =
     test {
       use db      = new DirectoryDatabase(repo)
-      let rev     = db.RevisionServer
       /// Revision number should be saved.
-      do! rev.Current |> assertEquals savedRevision
+      do! db.CurrentRevisionId |> assertEquals savedRevision
       /// Tables should be loaded.
       let tables  = db.Tables(savedRevision)
       let actual  = tables |> Seq.map (fun table -> table.Name) |> Seq.toList

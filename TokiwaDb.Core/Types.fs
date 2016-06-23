@@ -16,6 +16,11 @@ module Types =
   /// The initial value is 0.
   type RevisionId = int64
 
+  type [<AbstractClass>] RevisionServer() =
+    abstract member Current: RevisionId
+    abstract member Next: RevisionId
+    abstract member Increase: unit -> RevisionId
+
   type Name = string
 
   type Value =
@@ -80,9 +85,26 @@ module Types =
       Value: 'x
     }
 
-  type [<AbstractClass>] RevisionServer() =
-    abstract member Current: RevisionId
-    abstract member Next: unit -> RevisionId
+  [<RequireQualifiedAccess>]
+  type Error =
+    | WrongFieldsCount    of array<Field> * Record
+    | InvalidId           of Id
+
+  type Operation =
+    | InsertRecords       of Name * array<Record>
+    | RemoveRecords       of Name * array<Id>
+
+  type [<AbstractClass>] Transaction() =
+    abstract member BeginCount: int
+    abstract member Operations: seq<Operation>
+    abstract member RevisionServer: RevisionServer
+
+    abstract member Begin: unit -> unit
+    abstract member Add: Operation -> unit
+    abstract member Commit: unit -> unit
+    abstract member Rollback: unit -> unit
+
+    abstract member SyncRoot: obj
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
@@ -100,18 +122,26 @@ module Types =
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
     abstract member ToSeq: unit -> seq<Id * Mortal<RecordPointer>>
 
-    abstract member Insert: Record -> unit
-    abstract member Remove: Id -> option<Mortal<RecordPointer>>
+    abstract member PerformInsert: array<Record> -> unit
+    abstract member PerformRemove: array<Id> -> unit
+    abstract member Insert: array<Record> -> array<Error>
+    abstract member Remove: array<Id> -> array<Error>
 
     member this.Name = this.Schema.Name
 
   and [<AbstractClass>] Database() =
-    abstract member SyncRoot: obj
 
     abstract member Name: string
-    abstract member RevisionServer: RevisionServer
+
+    abstract member Transaction: Transaction
+
     abstract member Storage: Storage
+
     abstract member Tables: RevisionId -> seq<Table>
+    abstract member TryFindLivingTable: Name * RevisionId -> option<Table>
 
     abstract member CreateTable: TableSchema -> Table
     abstract member DropTable: Name -> bool
+    abstract member Perform: array<Operation> -> unit
+
+    member this.CurrentRevisionId = this.Transaction.RevisionServer.Current

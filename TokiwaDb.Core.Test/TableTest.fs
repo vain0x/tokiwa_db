@@ -7,7 +7,7 @@ open TokiwaDb.Core
 module TableTest =
   let testDb = MemoryDatabase("testDb")
   let storage = testDb.Storage
-  let rev = testDb.RevisionServer
+  let rev = testDb.Transaction.RevisionServer
   
   let testData =
     [
@@ -27,8 +27,7 @@ module TableTest =
       }
     let persons =
       testDb.CreateTable(schema)
-    for record in testData do
-      persons.Insert(record)
+    let _ = persons.Insert(testData |> List.toArray)
     test {
       let expected =
         testData
@@ -48,6 +47,15 @@ module TableTest =
       |> Seq.find (fun table -> table.Name = "persons")
 
   open TestData
+
+  let insertFailureTest =
+    test {
+      // Wrong count of fields.
+      let actual =
+        persons.Insert([| [||] |])
+        |> (function | [| Error.WrongFieldsCount (_, _) |] -> true | _ -> false)
+      do! actual |> assertPred
+    }
 
   let recordByIdTest =
     test {
@@ -70,13 +78,22 @@ module TableTest =
     test {
       let previousRevisionId = rev.Current
       // Remove Yukari.
-      let actual = persons.Remove(1L) |> Option.map (fun rp -> rp.Value.[2])
-      do! actual |> assertEquals (PInt 18L |> Some)
-      let actual = persons.Relation(testDb.RevisionServer.Current).RecordPointers |> Seq.toList
+      do! persons.Remove([| 1L |]) |> assertEquals [||]
+      let actual = persons.Relation(testDb.CurrentRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 2
       /// And the previous version is still available.
       let actual = persons.Relation(previousRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 3
+    }
+
+  let removeFailureTest =
+    test {
+      let isInvalidId =
+        function
+        | Error.InvalidId _ -> true
+        | _ -> false
+      do! persons.Remove([| -1L |]) |> Array.exists isInvalidId |> assertPred
+      do! persons.Remove([| 9L |]) |> Array.exists isInvalidId |> assertPred
     }
 
   let dropTest =
@@ -100,14 +117,88 @@ module TableTest =
       // NOTE: The first column (with index 0) is "id".
       let persons2 =
         testDb.CreateTable(schema)
-      let () =
-        persons2.Insert([| String "Miku"; Int 16L |])
-        persons2.Insert([| String "Yukari"; Int 18L |])
+      let _ =
+        persons2.Insert
+          ([|
+            [| String "Miku"; Int 16L |]
+            [| String "Yukari"; Int 18L |]
+          |])
       do! persons2.Indexes.Length |> assertEquals 1
       let index       = persons2.Indexes.[0]
       do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)
       // Then remove Miku.
-      let () =
-        persons2.Remove(0L) |> ignore
+      let _ =
+        persons2.Remove([| 0L |])
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
+    }
+
+  let performTest =
+    test {
+      let schema =
+        { TableSchema.empty "songs" with
+            Fields = [| Field.string "title"; Field.string "composer" |]
+        }
+      let songs =
+        testDb.CreateTable(schema)
+      let operations =
+        [|
+          InsertRecords (schema.Name,
+            [|
+              [| String "Ura Omote Lovers"; String "wowaka" |]
+              [| String "Rollin' Girl"; String "wowaka" |]
+            |])
+          RemoveRecords (schema.Name, [| 0L |])
+        |]
+      let () = testDb.Perform(operations)
+      // We need to bump up the revision number
+      // because inserted records are alive only after rev.Next.
+      let _ = rev.Increase()
+      do! songs.Relation(rev.Current).RecordPointers |> Seq.length |> assertEquals 1
+    }
+
+  let transactionTest =
+    test {
+      let schema =
+        { TableSchema.empty "items" with
+            Fields = [| Field.string "vocaloid"; Field.string "item" |]
+        }
+      let items = testDb.CreateTable(schema)
+      // Commit test.
+      let _ =
+        testDb |> Database.transact (fun () ->
+          items.Insert
+            ([|
+              [| String "Miku"; String "Green onions" |]
+              [| String "Yukari"; String "Chainsaws" |]
+            |])
+          )
+      do! items.ToSeq() |> Seq.length |> assertEquals 2
+
+      // Rollback test.
+      let transaction = testDb.Transaction
+      let () = transaction.Begin()
+      let _ =
+        items.Remove([|0L|])
+      let removeHasNotBeenPerformed () =
+        items.ToSeq() |> Seq.head |> snd |> Mortal.isAliveAt rev.Current
+      do! removeHasNotBeenPerformed () |> assertPred
+      let () =
+        transaction.Rollback()
+      do! removeHasNotBeenPerformed () |> assertPred
+
+      // Nested transaction.
+      let () = transaction.Begin()
+      let _ =
+        items.Insert([| [| String "Kaito"; String "Ices" |] |])
+      let () = transaction.Begin()
+      let _ =
+        items.Remove([|0L|])
+      let () =
+        // Rollback the internal transaction, which discards the remove but not the insert.
+        transaction.Rollback()
+      let () =
+        transaction.Commit()
+      do! removeHasNotBeenPerformed () |> assertPred
+      do! items.ToSeq() |> Seq.length |> assertEquals 3
+      return ()
     }

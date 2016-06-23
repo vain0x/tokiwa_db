@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Threading
 open FsYaml
 
 module ValuePointer =
@@ -79,6 +80,11 @@ module Mortal =
   let isAliveAt t (mortal: Mortal<_>) =
     mortal.Begin <= t && t < mortal.End
 
+  let valueIfAliveAt t (mortal: Mortal<_>) =
+    if mortal |> isAliveAt t
+    then mortal.Value |> Some
+    else None
+
   let kill t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
     then { mortal with End = t }
@@ -101,6 +107,8 @@ type MemoryRevisionServer(_id: RevisionId) =
   override this.Current =
     _id
 
-  override this.Next() =
-    _id <- _id + 1L
-    _id
+  override this.Next =
+    _id + 1L
+
+  override this.Increase() =
+    Interlocked.Increment(& _id)
