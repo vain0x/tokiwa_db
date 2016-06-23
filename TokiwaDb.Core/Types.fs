@@ -16,6 +16,11 @@ module Types =
   /// The initial value is 0.
   type RevisionId = int64
 
+  type [<AbstractClass>] RevisionServer() =
+    abstract member Current: RevisionId
+    abstract member Next: RevisionId
+    abstract member Increase: unit -> RevisionId
+
   type Name = string
 
   type Value =
@@ -98,11 +103,6 @@ module Types =
     abstract member Rollback: unit -> unit
 
     abstract member SyncRoot: obj
-
-  type [<AbstractClass>] RevisionServer() =
-    abstract member Current: RevisionId
-    abstract member Next: RevisionId
-    abstract member Increase: unit -> RevisionId
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
