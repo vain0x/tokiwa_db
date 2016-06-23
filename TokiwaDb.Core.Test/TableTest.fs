@@ -7,7 +7,7 @@ open TokiwaDb.Core
 module TableTest =
   let testDb = MemoryDatabase("testDb")
   let storage = testDb.Storage
-  let rev = testDb.RevisionServer
+  let rev = testDb.Transaction.RevisionServer
   
   let testData =
     [
@@ -79,7 +79,7 @@ module TableTest =
       let previousRevisionId = rev.Current
       // Remove Yukari.
       do! persons.Remove([| 1L |]) |> assertEquals [||]
-      let actual = persons.Relation(testDb.RevisionServer.Current).RecordPointers |> Seq.toList
+      let actual = persons.Relation(testDb.CurrentRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 2
       /// And the previous version is still available.
       let actual = persons.Relation(previousRevisionId).RecordPointers |> Seq.toList

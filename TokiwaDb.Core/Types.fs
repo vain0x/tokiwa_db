@@ -97,6 +97,8 @@ module Types =
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int
     abstract member Operations: seq<Operation>
+    abstract member RevisionServer: RevisionServer
+
     abstract member Begin: unit -> unit
     abstract member Add: Operation -> unit
     abstract member Commit: unit -> unit
@@ -131,7 +133,6 @@ module Types =
 
     abstract member Name: string
 
-    abstract member RevisionServer: RevisionServer
     abstract member Transaction: Transaction
 
     abstract member Storage: Storage
@@ -142,3 +143,5 @@ module Types =
     abstract member CreateTable: TableSchema -> Table
     abstract member DropTable: Name -> bool
     abstract member Perform: array<Operation> -> unit
+
+    member this.CurrentRevisionId = this.Transaction.RevisionServer.Current

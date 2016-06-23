@@ -100,7 +100,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   override this.Database = _db
 
   override this.PerformInsert(records: array<Record>) =
-    let revId           = _db.RevisionServer.Next
+    let revId           = _db.Transaction.RevisionServer.Next
     use stream          = _recordPointersSource.OpenAppend()
     let ()              =
       for record in records do
@@ -127,7 +127,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   override this.PerformRemove(recordIds) =
     use stream    = _recordPointersSource.OpenReadWrite()
-    let revId     = _db.RevisionServer.Next
+    let revId     = _db.Transaction.RevisionServer.Next
     let ()        =
       for recordId in recordIds |> Array.sort do
         match _positionFromId recordId with

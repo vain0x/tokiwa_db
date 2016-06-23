@@ -56,3 +56,5 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
       )
 
   override this.SyncRoot = _syncRoot
+
+  override this.RevisionServer = _revisionServer

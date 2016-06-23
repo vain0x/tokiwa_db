@@ -7,7 +7,7 @@ open FsYaml
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Database =
   let tryFindLivingTable name (this: Database) =
-      this.TryFindLivingTable(name, this.RevisionServer.Current)
+      this.TryFindLivingTable(name, this.CurrentRevisionId)
 
   let transact (f: unit -> 'x) (this: Database) =
     let () =
@@ -50,9 +50,6 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
     MemoryDatabase(name, MemoryRevisionServer() :> RevisionServer, new MemoryStorage(), [])
 
   override this.Name = _name
-
-  override this.RevisionServer =
-    _rev
 
   override this.Transaction =
     _transaction
@@ -181,9 +178,6 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
 
   override this.Name =
     _dir.Name
-
-  override this.RevisionServer =
-    _revisionServer :> RevisionServer
 
   override this.Transaction =
     _transaction
