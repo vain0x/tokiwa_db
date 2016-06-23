@@ -100,18 +100,17 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   override this.Database = _db
 
   override this.PerformInsert(records: array<Record>) =
-    lock _db.SyncRoot (fun () ->
-      let revId           = _db.RevisionServer.Increase()
-      use stream          = _recordPointersSource.OpenAppend()
-      let ()              =
-        for record in records do
-          let recordPointer =
-            Array.append [| PInt _hardLength |] (_db.Storage.Store(record))
-          for index in _indexes do
-            index.Insert(index.Projection(recordPointer), _hardLength)
-          stream |> _writeRecordPointer revId recordPointer
-          _hardLength <- _hardLength + 1L
-      in ())
+    let revId           = _db.RevisionServer.Next
+    use stream          = _recordPointersSource.OpenAppend()
+    let ()              =
+      for record in records do
+        let recordPointer =
+          Array.append [| PInt _hardLength |] (_db.Storage.Store(record))
+        for index in _indexes do
+          index.Insert(index.Projection(recordPointer), _hardLength)
+        stream |> _writeRecordPointer revId recordPointer
+        _hardLength <- _hardLength + 1L
+    in ()
 
   override this.Insert(records: array<Record>) =
     let (errors, records) =
@@ -127,23 +126,22 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     in errors
 
   override this.PerformRemove(recordIds) =
-    lock _db.SyncRoot (fun () ->
-      use stream    = _recordPointersSource.OpenReadWrite()
-      let revId     = _db.RevisionServer.Increase()
-      let ()        =
-        for recordId in recordIds |> Array.sort do
-          match _positionFromId recordId with
-          | None -> ()
-          | Some position ->
-            let _         = stream.Seek(position, SeekOrigin.Begin)
-            let record    = stream |> _readRecordPointer
-            in
-              if (record |> Mortal.isAliveAt revId) then
-                stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-                stream |> _kill revId
-                for index in _indexes do
-                  index.Remove(index.Projection(record.Value)) |> ignore
-      in ())
+    use stream    = _recordPointersSource.OpenReadWrite()
+    let revId     = _db.RevisionServer.Next
+    let ()        =
+      for recordId in recordIds |> Array.sort do
+        match _positionFromId recordId with
+        | None -> ()
+        | Some position ->
+          let _         = stream.Seek(position, SeekOrigin.Begin)
+          let record    = stream |> _readRecordPointer
+          in
+            if (record |> Mortal.isAliveAt revId) then
+              stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+              stream |> _kill revId
+              for index in _indexes do
+                index.Remove(index.Projection(record.Value)) |> ignore
+    in ()
 
   override this.Remove(recordIds) =
     let (recordIds, invalidIds) =

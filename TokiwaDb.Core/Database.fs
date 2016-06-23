@@ -35,9 +35,7 @@ module Database =
 type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) as this =
   inherit Database()
 
-  let _syncRoot = new obj()
-
-  let _transaction = MemoryTransaction(this.Perform) :> Transaction
+  let _transaction = MemoryTransaction(this.Perform, _rev) :> Transaction
 
   let mutable _tables = _tables
 
@@ -50,8 +48,6 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
 
   new (name: string) =
     MemoryDatabase(name, MemoryRevisionServer() :> RevisionServer, new MemoryStorage(), [])
-
-  override this.SyncRoot = _syncRoot
 
   override this.Name = _name
 
@@ -111,10 +107,6 @@ type FileDatabaseConfig =
 
 type DirectoryDatabase(_dir: DirectoryInfo) as this =
   inherit Database()
-
-  let _syncRoot = new obj()
-
-  let _transaction = MemoryTransaction(this.Perform) :> Transaction
 
   let _tableDir = DirectoryInfo(Path.Combine(_dir.FullName, ".table"))
   let _storageFile = FileInfo(Path.Combine(_dir.FullName, ".storage"))
@@ -177,6 +169,8 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       |> Array.map (fun table -> (table.Value.Name, table))
       |> Map.ofArray
 
+  let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> Transaction
+
   let mutable _isDisposed = false
 
   interface IDisposable with
@@ -184,9 +178,6 @@ type DirectoryDatabase(_dir: DirectoryInfo) as this =
       if not _isDisposed then
         _isDisposed <- true
         _saveConfig ()
-
-  override this.SyncRoot =
-    _syncRoot
 
   override this.Name =
     _dir.Name

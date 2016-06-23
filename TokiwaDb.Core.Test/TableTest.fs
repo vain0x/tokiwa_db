@@ -150,6 +150,9 @@ module TableTest =
           RemoveRecords (schema.Name, [| 0L |])
         |]
       let () = testDb.Perform(operations)
+      // We need to bump up the revision number
+      // because inserted records are alive only after rev.Next.
+      let _ = rev.Increase()
       do! songs.Relation(rev.Current).RecordPointers |> Seq.length |> assertEquals 1
     }
 

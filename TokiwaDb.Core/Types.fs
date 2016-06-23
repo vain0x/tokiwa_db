@@ -97,6 +97,8 @@ module Types =
     abstract member Commit: unit -> unit
     abstract member Rollback: unit -> unit
 
+    abstract member SyncRoot: obj
+
   type [<AbstractClass>] RevisionServer() =
     abstract member Current: RevisionId
     abstract member Next: RevisionId
@@ -126,7 +128,6 @@ module Types =
     member this.Name = this.Schema.Name
 
   and [<AbstractClass>] Database() =
-    abstract member SyncRoot: obj
 
     abstract member Name: string
 
