@@ -151,7 +151,8 @@ module TableTest =
             [|
               [| String "Ura Omote Lovers"; String "wowaka" |]
               [| String "Rollin' Girl"; String "wowaka" |]
-            |])
+            |] |> Array.map (fun rp -> Array.append [| PInt 0L |] (storage.Store(rp)))
+            )
           RemoveRecords (schema.Name, [| 0L |])
         |]
       let () = testDb.Perform(operations)
