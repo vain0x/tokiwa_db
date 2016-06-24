@@ -87,41 +87,51 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     }
 
   /// Each of recordPointers doesn't contain id field.
-  let _validateUniqueness (recordPointer: RecordPointer) =
+  let _validateUniqueness1 (index: HashTableIndex) (recordPointer: RecordPointer) =
     let rp = Array.append [| PInt -1L |] recordPointer
+    let part = index.Projection(rp)
     let duplicatedId =
-      _indexes |> Array.tryPick (fun index ->
-        match index.TryFind(index.Projection(rp)) with
-        | Some _ as self -> self
-        | None ->
-          _insertedRecordsInTransaction ()
-          |> Seq.tryPick (fun insertedRp ->
-            if index.Projection(insertedRp) = index.Projection(rp)
-            then insertedRp |> RecordPointer.tryId
-            else None
-            ))
+      match index.TryFind(part) with
+      | Some _ as self -> self
+      | None ->
+        _insertedRecordsInTransaction ()
+        |> Seq.tryPick (fun insertedRp ->
+          if index.Projection(insertedRp) = part
+          then insertedRp |> RecordPointer.tryId
+          else None
+          )
     in
       match duplicatedId with
       | Some recordId ->
         fail (Error.DuplicatedRecord (recordPointer, recordId))
-      | _ ->
+      | None ->
         pass ()
 
   let _validateInsertedRecords (records: array<Record>) =
-    [|
-      for record in records ->
-        trial {
-          // Validate the length of the record.
-          // TODO: Runtime type validation.
-          if record.Length + 1 <> _fields.Length then
-            return! fail <| Error.WrongFieldsCount (_schema.Fields, record)
-
-          let recordPointer = _db.Storage.Store(record)
-          do! _validateUniqueness recordPointer
-          return recordPointer
-        }
-    |]
-    |> Trial.collect
+    trial {
+      let! records =
+        [|
+          for record in records ->
+            trial {
+              // Validate the length of the record.
+              // TODO: Runtime type validation.
+              if record.Length + 1 <> _fields.Length then
+                return! fail <| Error.WrongFieldsCount (_schema.Fields, record)
+              return record
+            }
+        |]
+        |> Trial.collect
+      let recordPointers =
+        records |> List.toArray
+        |> Array.map (fun record -> _db.Storage.Store(record))
+      let! _ =
+        _indexes |> Array.collect (fun index ->
+          recordPointers |> Array.map (fun recordPointer ->
+            _validateUniqueness1 index recordPointer
+            ))
+        |> Trial.collect
+      return recordPointers
+    }
 
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
@@ -163,7 +173,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
         let length = _length ()
         let (recordIds, recordPointers) =
           // Give indexes to the new records.
-          recordPointers |> List.toArray
+          recordPointers
           |> Array.mapi (fun i rp ->
             let recordId = length + int64 i
             in (recordId, Array.append [| PInt recordId |] rp)
