@@ -42,34 +42,18 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   /// Read a record written at the current position.
   /// NOTE: The value of ID isn't written.
   let _readRecordPointer (stream: Stream) =
-    let beginRevision   = stream |> Stream.readInt64
-    let endRevision     = stream |> Stream.readInt64
-    let recordPointer   =
+    let recordId        = stream.Position / _recordLength
+    let readValue stream =
       [|
-        yield (stream.Position / _recordLength |> PInt)
-        for Field (_, type') in _fields |> Seq.skip 1 do
-          yield stream |> Stream.readInt64 |> ValuePointer.ofUntyped type'
+        yield PInt recordId
+        yield! RecordPointer.readFromStream (_fields |> Seq.skip 1) stream
       |]
     in
-      {
-        Begin     = beginRevision
-        End       = endRevision
-        Value     = recordPointer
-      }
+      Mortal.readFromStream readValue stream
 
   let _writeRecordPointer t recordPointer (stream: Stream) =
-    let recordPointer = recordPointer |> RecordPointer.dropId
-    stream |> Stream.writeInt64 t
-    stream |> Stream.writeInt64 Mortal.maxLifeSpan
-    for valuePointer in recordPointer do
-      stream |> Stream.writeInt64 (valuePointer |> ValuePointer.toUntyped)
-
-  /// Set to `t` the end of lifespan of the record written at the current position.
-  /// Advances the position to the next record.
-  let _kill t (stream: Stream) =
-    stream.Seek(8L, SeekOrigin.Current) |> ignore
-    stream |> Stream.writeInt64 t
-    stream.Seek(_recordLength - 16L, SeekOrigin.Current) |> ignore
+    Mortal.create t (recordPointer |> RecordPointer.dropId)
+    |> Mortal.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
 
   let _allRecordPointers () =
     seq {
@@ -203,7 +187,8 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           in
             if (record |> Mortal.isAliveAt revId) then
               stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              stream |> _kill revId
+              Mortal.killInStream revId stream
+              stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
               for index in _indexes do
                 index.Remove(index.Projection(record.Value)) |> ignore
     in ()

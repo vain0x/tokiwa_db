@@ -62,6 +62,16 @@ module RecordPointer =
   let dropId (recordPointer: RecordPointer) =
     recordPointer.[1..]
 
+  let readFromStream fields (stream: Stream) =
+    [|
+      for Field (_, type') in fields do
+        yield stream |> Stream.readInt64 |> ValuePointer.ofUntyped type'
+    |]
+
+  let writeToStream (stream: Stream) recordPointer =
+    for valuePointer in recordPointer do
+      stream |> Stream.writeInt64 (valuePointer |> ValuePointer.toUntyped)
+
 module Field =
   let toType (Field (_, type')) =
     type'
@@ -119,6 +129,29 @@ module Mortal =
       End       = m.End
       Value     = f m.Value
     }
+
+  let readFromStream readValue (stream: Stream) =
+    let beginRevision   = stream |> Stream.readInt64
+    let endRevision     = stream |> Stream.readInt64
+    let value           = stream |> readValue
+    in
+      {
+        Begin     = beginRevision
+        End       = endRevision
+        Value     = value
+      }
+
+  let writeToStream writeValue (stream: Stream) (this: Mortal<_>) =
+    stream |> Stream.writeInt64 this.Begin
+    stream |> Stream.writeInt64 this.End
+    stream |> writeValue this.Value
+    
+  /// Set to `t` the end of lifespan of the mortal value written at the current position.
+  /// This doesn't modify the position.
+  let killInStream t (stream: Stream) =
+    stream.Seek(8L, SeekOrigin.Current) |> ignore
+    stream |> Stream.writeInt64 t
+    stream.Seek(-16L, SeekOrigin.Current) |> ignore
 
 type MemoryRevisionServer(_id: RevisionId) =
   inherit RevisionServer()

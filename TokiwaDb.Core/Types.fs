@@ -51,6 +51,7 @@ module Types =
   type TableSchema =
     {
       Name          : Name
+      /// Except for id field.
       Fields        : array<Field>
       Indexes       : array<IndexSchema>
     }

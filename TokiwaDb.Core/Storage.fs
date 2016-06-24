@@ -124,35 +124,4 @@ type FileStorage(_file: FileInfo) =
     )
 
 type MemoryStorage() =
-  inherit Storage()
-
-  let _dict = Dictionary<int64, Value>()
-
-  let _rev = Dictionary<Value, int64>()
-
-  let _lookup p = _dict.Item(p)
-
-  let _add value =
-    match _rev.TryGetValue(value) with
-    | (true, p) -> p
-    | (false, _) ->
-      let k     = _dict.Count |> int64
-      let ()    = _dict.Add(k, value)
-      let ()    = _rev.Add(value, k)
-      in k
-
-  override this.Derefer(valuePtr): Value =
-    match valuePtr with
-    | PInt x       -> Int x
-    | PFloat x     -> Float x
-    | PTime x      -> Time x
-    | PString p
-      -> _lookup p
-
-  override this.Store(value) =
-    match value with
-    | Int x       -> PInt x
-    | Float x     -> PFloat x
-    | Time x      -> PTime x
-    | String _
-      -> _add value |> PString
+  inherit StreamSourceStorage(new MemoryStreamSource(), new MemoryStreamSource())
