@@ -111,6 +111,22 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       then fail (Error.DuplicatedRecord recordPointer)
       else pass part
 
+  let _validateUniqueness (recordPointers: array<RecordPointer>) =
+    [
+      for index in _indexes do
+        let bucket = Set.empty |> ref
+        for recordPointer in recordPointers do
+          match _validateUniqueness1 (! bucket) index recordPointer with
+          | Pass part ->
+            bucket := (! bucket) |> Set.add part
+          | Warn (_, msgs)
+          | Fail msgs ->
+            yield! msgs
+    ]
+    |> (function
+      | [] -> Trial.pass ()
+      | _ as es -> Bad es)
+
   let _validateInsertedRecords (records: array<Record>) =
     trial {
       let! records =
@@ -119,16 +135,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       let recordPointers =
         records |> List.toArray
         |> Array.map (fun record -> _db.Storage.Store(record))
-      let! _ =
-        [|
-          for index in _indexes do
-            let bucket = Set.empty |> ref
-            for recordPointer in recordPointers do
-              match _validateUniqueness1 (! bucket) index recordPointer with
-              | Pass part -> bucket := (! bucket) |> Set.add part
-              | _ as error -> yield error
-        |]
-        |> Trial.collect
+      do! _validateUniqueness recordPointers
       return recordPointers
     }
 
