@@ -3,6 +3,7 @@
 open System
 open System.Collections
 open System.Collections.Generic
+open Chessie.ErrorHandling
 
 [<AutoOpen>]
 module Types =
@@ -125,8 +126,8 @@ module Types =
 
     abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<Id> -> unit
-    abstract member Insert: array<Record> -> array<Error>
-    abstract member Remove: array<Id> -> array<Error>
+    abstract member Insert: array<Record> -> Result<array<Id>, Error>
+    abstract member Remove: array<Id> -> Result<unit, Error>
 
     member this.Name = this.Schema.Name
 
