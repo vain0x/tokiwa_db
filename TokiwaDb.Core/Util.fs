@@ -34,6 +34,11 @@ module Array =
     |> Array.unzip
     |> (fun (ys, xs) -> (ys |> Array.choose id, xs |> Array.choose id))
 
+  let tryHead xs =
+    if xs |> Array.isEmpty
+    then None
+    else Some xs.[0]
+
 module Seq =
   let equalAll xs =
     if xs |> Seq.isEmpty

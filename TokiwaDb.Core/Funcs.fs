@@ -42,6 +42,14 @@ module RecordPointer =
   let serializer len =
     FixedLengthArraySerializer(ValuePointer.serializer, len)
 
+  let tryId recordPointer =
+    match recordPointer |> Array.tryHead with
+    | Some (PInt recordId) -> recordId |> Some
+    | _ -> None
+
+  let dropId (recordPointer: RecordPointer) =
+    recordPointer.[1..]
+
 module Field =
   let int name =
     Field (name, TInt)

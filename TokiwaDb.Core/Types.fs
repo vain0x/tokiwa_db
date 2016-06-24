@@ -88,10 +88,11 @@ module Types =
   [<RequireQualifiedAccess>]
   type Error =
     | WrongFieldsCount    of array<Field> * Record
+    | DuplicatedRecord    of RecordPointer * Id
     | InvalidId           of Id
 
   type Operation =
-    | InsertRecords       of Name * array<Record>
+    | InsertRecords       of Name * array<RecordPointer>
     | RemoveRecords       of Name * array<Id>
 
   type [<AbstractClass>] Transaction() =
@@ -122,7 +123,7 @@ module Types =
     abstract member RecordById: Id -> option<Mortal<RecordPointer>>
     abstract member ToSeq: unit -> seq<Mortal<RecordPointer>>
 
-    abstract member PerformInsert: array<Record> -> unit
+    abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<Id> -> unit
     abstract member Insert: array<Record> -> array<Error>
     abstract member Remove: array<Id> -> array<Error>

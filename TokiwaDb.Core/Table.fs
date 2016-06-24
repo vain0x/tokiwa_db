@@ -19,14 +19,18 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let mutable _hardLength =
     _recordPointersSource.Length / _recordLength
 
-  let _length () =
-    let countScheduledInserts =
-      _db.Transaction.Operations |> Seq.sumBy (fun operation ->
+  let _insertedRecordsInTransaction () =
+    _db.Transaction.Operations |> Seq.collect (fun operation ->
+      seq {
         match operation with
         | InsertRecords (tableName, records) when tableName = _schema.Name ->
-          records.LongLength
-        | _ -> 0L
-        )
+          yield! records
+        | _ -> ()
+      })
+
+  let _length () =
+    let countScheduledInserts =
+      _insertedRecordsInTransaction () |> Seq.length |> int64
     in _hardLength + countScheduledInserts
 
   let _positionFromId (recordId: Id) =
@@ -53,6 +57,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       }
 
   let _writeRecordPointer t recordPointer (stream: Stream) =
+    let recordPointer = recordPointer |> RecordPointer.dropId
     stream |> Stream.writeInt64 t
     stream |> Stream.writeInt64 Mortal.maxLifeSpan
     for valuePointer in recordPointer do
@@ -80,6 +85,24 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           yield rp.Value
     }
 
+  /// Each of recordPointers doesn't contain id field.
+  let _validateUniqueness (recordPointers: array<RecordPointer>) =
+    recordPointers |> Array.partitionMap (fun rp ->
+      _indexes |> Array.tryPick (fun index ->
+        let rp = Array.append [| PInt -1L |] rp
+        match index.TryFind(index.Projection(rp)) with
+        | Some _ as self -> self
+        | None ->
+          _insertedRecordsInTransaction ()
+          |> Seq.tryPick (fun insertedRp ->
+            if index.Projection(insertedRp) = index.Projection(rp)
+            then insertedRp |> RecordPointer.tryId
+            else None
+            ))
+      |> Option.map (fun recordId ->
+        Error.DuplicatedRecord (rp, recordId)
+        ))
+
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
 
@@ -102,32 +125,41 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   override this.Database = _db
 
-  override this.PerformInsert(records: array<Record>) =
+  override this.PerformInsert(recordPointers: array<RecordPointer>) =
     let revId           = _db.Transaction.RevisionServer.Next
     use stream          = _recordPointersSource.OpenAppend()
     let ()              =
-      for record in records do
-        let recordPointer =
-          _db.Storage.Store(record)
-        let recordPointerWithId =
-          Array.append [| PInt _hardLength |] recordPointer
+      for rp in recordPointers do
         for index in _indexes do
-          index.Insert(index.Projection(recordPointerWithId), _hardLength)
-        stream |> _writeRecordPointer revId recordPointer
+          index.Insert(index.Projection(rp), _hardLength)
+        stream |> _writeRecordPointer revId rp
         _hardLength <- _hardLength + 1L
     in ()
 
   override this.Insert(records: array<Record>) =
     let (errors, records) =
+      // Validate the length of the record.
+      // TODO: Runtime type validation.
       records |> Array.partitionMap (fun record ->
-        /// TODO: Runtime type validation.
         if record.Length + 1 <> _fields.Length then
           Error.WrongFieldsCount (_schema.Fields, record) |> Some
         else None
         )
+    let recordPointers =
+      records |> Array.map (fun record -> _db.Storage.Store(record))
+    let (errors, recordPointers) =
+      // Validate uniqueness.
+      _validateUniqueness recordPointers
+      |> (fun (duplicationErrors, recordPointers) -> 
+        (Array.append errors duplicationErrors, recordPointers)
+        )
+    let length = _length ()
+    let recordPointers =
+      // Add index the new records.
+      recordPointers |> Array.mapi (fun i rp -> Array.append [| PInt (length + int64 i) |] rp)
     let () =
       if errors |> Array.isEmpty then
-        _db.Transaction.Add(InsertRecords (this.Name, records))
+        _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
     in errors
 
   override this.PerformRemove(recordIds) =
