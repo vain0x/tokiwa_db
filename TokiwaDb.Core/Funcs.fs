@@ -130,6 +130,22 @@ module Mortal =
       Value     = f m.Value
     }
 
+  let readFromStream readValue (stream: Stream) =
+    let beginRevision   = stream |> Stream.readInt64
+    let endRevision     = stream |> Stream.readInt64
+    let value           = stream |> readValue
+    in
+      {
+        Begin     = beginRevision
+        End       = endRevision
+        Value     = value
+      }
+
+  let writeToStream writeValue (stream: Stream) (this: Mortal<_>) =
+    stream |> Stream.writeInt64 this.Begin
+    stream |> Stream.writeInt64 this.End
+    stream |> writeValue this.Value
+
 type MemoryRevisionServer(_id: RevisionId) =
   inherit RevisionServer()
   let mutable _id = _id

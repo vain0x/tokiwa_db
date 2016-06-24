@@ -43,24 +43,17 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   /// NOTE: The value of ID isn't written.
   let _readRecordPointer (stream: Stream) =
     let recordId        = stream.Position / _recordLength
-    let beginRevision   = stream |> Stream.readInt64
-    let endRevision     = stream |> Stream.readInt64
-    let recordPointer   =
+    let readValue stream =
       [|
         yield PInt recordId
         yield! RecordPointer.readFromStream (_fields |> Seq.skip 1) stream
       |]
     in
-      {
-        Begin     = beginRevision
-        End       = endRevision
-        Value     = recordPointer
-      }
+      Mortal.readFromStream readValue stream
 
   let _writeRecordPointer t recordPointer (stream: Stream) =
-    stream |> Stream.writeInt64 t
-    stream |> Stream.writeInt64 Mortal.maxLifeSpan
-    recordPointer |> RecordPointer.dropId |> RecordPointer.writeToStream stream
+    Mortal.create t (recordPointer |> RecordPointer.dropId)
+    |> Mortal.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
 
   /// Set to `t` the end of lifespan of the record written at the current position.
   /// Advances the position to the next record.
