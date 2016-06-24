@@ -62,6 +62,16 @@ module RecordPointer =
   let dropId (recordPointer: RecordPointer) =
     recordPointer.[1..]
 
+  let readFromStream fields (stream: Stream) =
+    [|
+      for Field (_, type') in fields do
+        yield stream |> Stream.readInt64 |> ValuePointer.ofUntyped type'
+    |]
+
+  let writeToStream (stream: Stream) recordPointer =
+    for valuePointer in recordPointer do
+      stream |> Stream.writeInt64 (valuePointer |> ValuePointer.toUntyped)
+
 module Field =
   let toType (Field (_, type')) =
     type'
