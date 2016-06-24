@@ -28,8 +28,10 @@ module TableTest =
       }
     let persons =
       testDb.CreateTable(schema)
-    let _ = persons.Insert(testData |> List.toArray)
     test {
+      do! persons.Insert(testData |> List.toArray)
+        |> Trial.returnOrFail
+        |> assertEquals [| 0L; 1L; 2L |]
       let expected =
         testData
         |> List.mapi (fun i record -> Array.append [| Int (int64 i) |] record)
@@ -211,10 +213,16 @@ module TableTest =
 
       // Inserting a duplicated record should return an error.
       let () = transaction.Begin()
-      do! items.Insert([| [| String "Ren"; String "Bananas" |] |]) |> assertEquals (Trial.pass ())
-      do! items.Insert([| [| String "Ren"; String "Headphones" |] |])
+      do! items.Insert([| [| String "Len"; String "Bananas" |] |])
+        |> Trial.returnOrFail
+        |> assertEquals [| 3L |]
+      do! items.Insert([| [| String "Len"; String "Headphones" |] |])
         |> (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
         |> assertPred
+      // Insert should return the actual record IDs of inserted records.
+      do! items.Insert([| [| String "Rin"; String "Oranges" |] |])
+        |> Trial.returnOrFail
+        |> assertEquals [| 4L |]
       let () = transaction.Rollback()
       return ()
     }

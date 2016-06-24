@@ -160,13 +160,17 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           |]
           |> Trial.collect
         let length = _length ()
-        let recordPointers =
+        let (recordIds, recordPointers) =
           // Give indexes to the new records.
           recordPointers |> List.toArray
-          |> Array.mapi (fun i rp -> Array.append [| PInt (length + int64 i) |] rp)
+          |> Array.mapi (fun i rp ->
+            let recordId = length + int64 i
+            in (recordId, Array.append [| PInt recordId |] rp)
+            )
+          |> Array.unzip
         let () =
           _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
-        return ()
+        return recordIds
       })
 
   override this.PerformRemove(recordIds) =

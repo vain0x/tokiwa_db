@@ -126,7 +126,7 @@ module Types =
 
     abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<Id> -> unit
-    abstract member Insert: array<Record> -> Result<unit, Error>
+    abstract member Insert: array<Record> -> Result<array<Id>, Error>
     abstract member Remove: array<Id> -> Result<unit, Error>
 
     member this.Name = this.Schema.Name
