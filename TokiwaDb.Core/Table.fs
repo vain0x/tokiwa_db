@@ -153,14 +153,17 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       |> (fun (duplicationErrors, recordPointers) -> 
         (Array.append errors duplicationErrors, recordPointers)
         )
-    let length = _length ()
-    let recordPointers =
-      // Add index the new records.
-      recordPointers |> Array.mapi (fun i rp -> Array.append [| PInt (length + int64 i) |] rp)
-    let () =
-      if errors |> Array.isEmpty then
-        _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
-    in errors
+    in
+      lock _db.Transaction.SyncRoot (fun () ->
+        let length = _length ()
+        let recordPointers =
+          // Add index the new records.
+          recordPointers |> Array.mapi (fun i rp -> Array.append [| PInt (length + int64 i) |] rp)
+        let () =
+          if errors |> Array.isEmpty then
+            _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
+        in (recordPointers, errors)
+        )
 
   override this.PerformRemove(recordIds) =
     use stream    = _recordPointersSource.OpenReadWrite()
