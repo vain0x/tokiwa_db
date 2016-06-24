@@ -19,14 +19,18 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let mutable _hardLength =
     _recordPointersSource.Length / _recordLength
 
-  let _length () =
-    let countScheduledInserts =
-      _db.Transaction.Operations |> Seq.sumBy (fun operation ->
+  let _insertedRecordsInTransaction () =
+    _db.Transaction.Operations |> Seq.collect (fun operation ->
+      seq {
         match operation with
         | InsertRecords (tableName, records) when tableName = _schema.Name ->
-          records.LongLength
-        | _ -> 0L
-        )
+          yield! records
+        | _ -> ()
+      })
+
+  let _length () =
+    let countScheduledInserts =
+      _insertedRecordsInTransaction () |> Seq.length |> int64
     in _hardLength + countScheduledInserts
 
   let _positionFromId (recordId: Id) =
@@ -80,6 +84,26 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           yield rp.Value
     }
 
+  let _validateUniqueness (records: array<Record>) =
+    records |> Array.partitionMap (fun record ->
+      _indexes |> Array.tryPick (fun index ->
+        let rp = Array.append [| PInt -1L |] (_db.Storage.Store(record))
+        match index.TryFind(index.Projection(rp)) with
+        | Some x as self -> self
+        | None ->
+          _insertedRecordsInTransaction ()
+          |> Seq.mapi (fun i record ->
+            let recordId        = _hardLength + int64 i
+            let recordPointer   = Array.append [| PInt recordId |] (_db.Storage.Store(record))
+            in (recordId, recordPointer)
+            )
+          |> Seq.tryFind (fun (_, insertedRp) -> index.Projection(insertedRp) = index.Projection(rp))
+          |> Option.map fst
+          )
+      |> Option.map (fun recordId ->
+        Error.DuplicatedRecord (record, recordId)
+        ))
+
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
 
@@ -119,11 +143,18 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
 
   override this.Insert(records: array<Record>) =
     let (errors, records) =
+      // Validate the length of the record.
+      // TODO: Runtime type validation.
       records |> Array.partitionMap (fun record ->
-        /// TODO: Runtime type validation.
         if record.Length + 1 <> _fields.Length then
           Error.WrongFieldsCount (_schema.Fields, record) |> Some
         else None
+        )
+    let (errors, records) =
+      // Validate uniqueness.
+      _validateUniqueness records
+      |> (fun (duplicationErrors, records) -> 
+        (Array.append errors duplicationErrors, records)
         )
     let () =
       if errors |> Array.isEmpty then

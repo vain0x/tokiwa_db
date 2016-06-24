@@ -130,6 +130,11 @@ module TableTest =
       let _ =
         persons2.Remove([| 0L |])
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
+      // Duplication error test.
+      let actual =
+        persons2.Insert([| [| String "Yukari"; Int 99L |] |])
+        |> (function | [| Error.DuplicatedRecord _ |] -> true | _ -> false)
+      do! actual |> assertPred
     }
 
   let performTest =
@@ -161,6 +166,7 @@ module TableTest =
       let schema =
         { TableSchema.empty "items" with
             Fields = [| Field.string "vocaloid"; Field.string "item" |]
+            Indexes = [| HashTableIndexSchema [| 1 |] |]
         }
       let items = testDb.CreateTable(schema)
       // Commit test.
@@ -200,5 +206,13 @@ module TableTest =
         transaction.Commit()
       do! removeHasNotBeenPerformed () |> assertPred
       do! items.ToSeq() |> Seq.length |> assertEquals 3
+
+      // Inserting a duplicated record should return an error.
+      let () = transaction.Begin()
+      do! items.Insert([| [| String "Ren"; String "Bananas" |] |]) |> assertEquals [||]
+      do! items.Insert([| [| String "Ren"; String "Headphones" |] |])
+        |> (function [| Error.DuplicatedRecord _ |] -> true | _ -> false)
+        |> assertPred
+      let () = transaction.Rollback()
       return ()
     }
