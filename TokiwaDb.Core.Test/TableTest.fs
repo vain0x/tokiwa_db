@@ -56,8 +56,13 @@ module TableTest =
       // Wrong count of fields.
       let actual =
         persons.Insert([| [||] |])
-        |> (function | Fail ([Error.WrongFieldsCount (_, _)]) -> true | _ -> false)
+        |> (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
       do! actual |> assertPred
+      // Type mismatch.
+      do!
+        persons.Insert([| [| String "Iroha"; String "AGE" |] |])
+        |> (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
+        |> assertPred
     }
 
   let recordByIdTest =

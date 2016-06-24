@@ -86,6 +86,13 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           yield rp.Value
     }
 
+  let _validateRecordType (record: Record) =
+    trial {
+      if record |> Record.toType <> (_fields.[1..] |> Array.map Field.toType) then
+        return! fail <| Error.WrongRecordType (_schema.Fields, record)
+      return record
+    }
+
   /// Each of recordPointers doesn't contain id field.
   let _validateUniqueness1
       (bucket: Set<RecordPointer>)
@@ -107,16 +114,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let _validateInsertedRecords (records: array<Record>) =
     trial {
       let! records =
-        [|
-          for record in records ->
-            trial {
-              // Validate the length of the record.
-              // TODO: Runtime type validation.
-              if record.Length + 1 <> _fields.Length then
-                return! fail <| Error.WrongFieldsCount (_schema.Fields, record)
-              return record
-            }
-        |]
+        records |> Array.map _validateRecordType
         |> Trial.collect
       let recordPointers =
         records |> List.toArray

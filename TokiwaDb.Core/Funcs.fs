@@ -5,6 +5,14 @@ open System.IO
 open System.Threading
 open FsYaml
 
+module Value =
+  let toType =
+    function
+    | Int _    -> TInt
+    | Float _  -> TFloat
+    | String _ -> TString
+    | Time _   -> TTime
+
 module ValuePointer =
   let ofUntyped type' (p: int64) =
     match type' with
@@ -35,6 +43,10 @@ module ValuePointer =
         DateTimeSerializer()
       |])
 
+module Record =
+  let toType record =
+    record |> Array.map Value.toType
+
 module RecordPointer =
   let hash recordPointer =
     recordPointer |> Array.map ValuePointer.hash |> Array.hash |> int64
@@ -51,6 +63,9 @@ module RecordPointer =
     recordPointer.[1..]
 
 module Field =
+  let toType (Field (_, type')) =
+    type'
+
   let int name =
     Field (name, TInt)
 
