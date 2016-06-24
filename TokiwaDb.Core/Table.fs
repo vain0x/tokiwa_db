@@ -90,22 +90,14 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   let _validateUniqueness1 (index: HashTableIndex) (recordPointer: RecordPointer) =
     let rp = Array.append [| PInt -1L |] recordPointer
     let part = index.Projection(rp)
-    let duplicatedId =
-      match index.TryFind(part) with
-      | Some _ as self -> self
-      | None ->
-        _insertedRecordsInTransaction ()
-        |> Seq.tryPick (fun insertedRp ->
-          if index.Projection(insertedRp) = part
-          then insertedRp |> RecordPointer.tryId
-          else None
-          )
+    let isDuplicated =
+      index.TryFind(part) |> Option.isSome
+      || (_insertedRecordsInTransaction ()
+        |> Seq.exists (fun insertedRp -> index.Projection(insertedRp) = part))
     in
-      match duplicatedId with
-      | Some recordId ->
-        fail (Error.DuplicatedRecord (recordPointer, recordId))
-      | None ->
-        pass ()
+      if isDuplicated
+      then fail (Error.DuplicatedRecord recordPointer)
+      else pass ()
 
   let _validateInsertedRecords (records: array<Record>) =
     trial {
