@@ -107,6 +107,22 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       | _ ->
         pass ()
 
+  let _validateInsertedRecords (records: array<Record>) =
+    [|
+      for record in records ->
+        trial {
+          // Validate the length of the record.
+          // TODO: Runtime type validation.
+          if record.Length + 1 <> _fields.Length then
+            return! fail <| Error.WrongFieldsCount (_schema.Fields, record)
+
+          let recordPointer = _db.Storage.Store(record)
+          do! _validateUniqueness recordPointer
+          return recordPointer
+        }
+    |]
+    |> Trial.collect
+
   new (db, schema, source) =
     StreamTable(db, schema, [||], source)
 
@@ -143,22 +159,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
   override this.Insert(records: array<Record>) =
     lock _db.Transaction.SyncRoot (fun () ->
       trial {
-        let nextId = _length () |> ref
-        let! recordPointers =
-          [|
-            for record in records ->
-              trial {
-                // Validate the length of the record.
-                // TODO: Runtime type validation.
-                if record.Length + 1 <> _fields.Length then
-                  return! fail <| Error.WrongFieldsCount (_schema.Fields, record)
-
-                let recordPointer = _db.Storage.Store(record)
-                do! _validateUniqueness recordPointer
-                return recordPointer
-              }
-          |]
-          |> Trial.collect
+        let! recordPointers = _validateInsertedRecords records
         let length = _length ()
         let (recordIds, recordPointers) =
           // Give indexes to the new records.
