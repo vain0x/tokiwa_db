@@ -88,8 +88,8 @@ module Types =
 
   [<RequireQualifiedAccess>]
   type Error =
-    | WrongFieldsCount    of array<Field> * Record
-    | DuplicatedRecord    of RecordPointer * Id
+    | WrongRecordType     of array<Field> * Record
+    | DuplicatedRecord    of RecordPointer
     | InvalidId           of Id
 
   type Operation =
