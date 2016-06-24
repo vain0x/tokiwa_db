@@ -1,5 +1,6 @@
 ﻿namespace TokiwaDb.Core.Test
 
+open Chessie.ErrorHandling
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
@@ -53,7 +54,7 @@ module TableTest =
       // Wrong count of fields.
       let actual =
         persons.Insert([| [||] |])
-        |> (function | [| Error.WrongFieldsCount (_, _) |] -> true | _ -> false)
+        |> (function | Fail ([Error.WrongFieldsCount (_, _)]) -> true | _ -> false)
       do! actual |> assertPred
     }
 
@@ -78,7 +79,7 @@ module TableTest =
     test {
       let previousRevisionId = rev.Current
       // Remove Yukari.
-      do! persons.Remove([| 1L |]) |> assertEquals [||]
+      do! persons.Remove([| 1L |]) |> assertEquals (Trial.pass ())
       let actual = persons.Relation(testDb.CurrentRevisionId).RecordPointers |> Seq.toList
       do! actual |> List.length |> assertEquals 2
       /// And the previous version is still available.
@@ -88,12 +89,12 @@ module TableTest =
 
   let removeFailureTest =
     test {
-      let isInvalidId =
+      let containsInvalidId =
         function
-        | Error.InvalidId _ -> true
+        | Fail ([Error.InvalidId _]) -> true
         | _ -> false
-      do! persons.Remove([| -1L |]) |> Array.exists isInvalidId |> assertPred
-      do! persons.Remove([| 9L |]) |> Array.exists isInvalidId |> assertPred
+      do! persons.Remove([| -1L |]) |> containsInvalidId |> assertPred
+      do! persons.Remove([| 9L |]) |> containsInvalidId |> assertPred
     }
 
   let dropTest =
@@ -133,7 +134,7 @@ module TableTest =
       // Duplication error test.
       let actual =
         persons2.Insert([| [| String "Yukari"; Int 99L |] |])
-        |> (function | [| Error.DuplicatedRecord _ |] -> true | _ -> false)
+        |> (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
       do! actual |> assertPred
     }
 
@@ -210,9 +211,9 @@ module TableTest =
 
       // Inserting a duplicated record should return an error.
       let () = transaction.Begin()
-      do! items.Insert([| [| String "Ren"; String "Bananas" |] |]) |> assertEquals [||]
+      do! items.Insert([| [| String "Ren"; String "Bananas" |] |]) |> assertEquals (Trial.pass ())
       do! items.Insert([| [| String "Ren"; String "Headphones" |] |])
-        |> (function [| Error.DuplicatedRecord _ |] -> true | _ -> false)
+        |> (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
         |> assertPred
       let () = transaction.Rollback()
       return ()
