@@ -87,17 +87,22 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     }
 
   /// Each of recordPointers doesn't contain id field.
-  let _validateUniqueness1 (index: HashTableIndex) (recordPointer: RecordPointer) =
+  let _validateUniqueness1
+      (bucket: Set<RecordPointer>)
+      (index: HashTableIndex)
+      (recordPointer: RecordPointer)
+    =
     let rp = Array.append [| PInt -1L |] recordPointer
     let part = index.Projection(rp)
     let isDuplicated =
       index.TryFind(part) |> Option.isSome
       || (_insertedRecordsInTransaction ()
         |> Seq.exists (fun insertedRp -> index.Projection(insertedRp) = part))
+      || bucket |> Set.contains part
     in
       if isDuplicated
       then fail (Error.DuplicatedRecord recordPointer)
-      else pass ()
+      else pass part
 
   let _validateInsertedRecords (records: array<Record>) =
     trial {
@@ -117,10 +122,14 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
         records |> List.toArray
         |> Array.map (fun record -> _db.Storage.Store(record))
       let! _ =
-        _indexes |> Array.collect (fun index ->
-          recordPointers |> Array.map (fun recordPointer ->
-            _validateUniqueness1 index recordPointer
-            ))
+        [|
+          for index in _indexes do
+            let bucket = Set.empty |> ref
+            for recordPointer in recordPointers do
+              match _validateUniqueness1 (! bucket) index recordPointer with
+              | Pass part -> bucket := (! bucket) |> Set.add part
+              | _ as error -> yield error
+        |]
         |> Trial.collect
       return recordPointers
     }

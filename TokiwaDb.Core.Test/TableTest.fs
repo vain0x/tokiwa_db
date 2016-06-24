@@ -133,11 +133,19 @@ module TableTest =
       let _ =
         persons2.Remove([| 0L |])
       do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
-      // Duplication error test.
+      // Duplication error test. (With records already written.)
       let actual =
         persons2.Insert([| [| String "Yukari"; Int 99L |] |])
         |> (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
-      do! actual |> assertPred
+      // Duplication error test. (With records in the argument.)
+      do!
+        persons2.Insert
+          ([|
+            [| String "Len"; Int 14L |]
+            [| String "Len"; Int 15L |]
+          |])
+        |> (function | Fail [Error.DuplicatedRecord _] -> true | _ -> false)
+        |> assertPred
     }
 
   let performTest =
