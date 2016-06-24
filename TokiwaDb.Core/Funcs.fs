@@ -145,6 +145,13 @@ module Mortal =
     stream |> Stream.writeInt64 this.Begin
     stream |> Stream.writeInt64 this.End
     stream |> writeValue this.Value
+    
+  /// Set to `t` the end of lifespan of the mortal value written at the current position.
+  /// This doesn't modify the position.
+  let killInStream t (stream: Stream) =
+    stream.Seek(8L, SeekOrigin.Current) |> ignore
+    stream |> Stream.writeInt64 t
+    stream.Seek(-16L, SeekOrigin.Current) |> ignore
 
 type MemoryRevisionServer(_id: RevisionId) =
   inherit RevisionServer()

@@ -55,13 +55,6 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     Mortal.create t (recordPointer |> RecordPointer.dropId)
     |> Mortal.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
 
-  /// Set to `t` the end of lifespan of the record written at the current position.
-  /// Advances the position to the next record.
-  let _kill t (stream: Stream) =
-    stream.Seek(8L, SeekOrigin.Current) |> ignore
-    stream |> Stream.writeInt64 t
-    stream.Seek(_recordLength - 16L, SeekOrigin.Current) |> ignore
-
   let _allRecordPointers () =
     seq {
       let stream = _recordPointersSource.OpenRead()
@@ -194,7 +187,8 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
           in
             if (record |> Mortal.isAliveAt revId) then
               stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              stream |> _kill revId
+              Mortal.killInStream revId stream
+              stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
               for index in _indexes do
                 index.Remove(index.Projection(record.Value)) |> ignore
     in ()
