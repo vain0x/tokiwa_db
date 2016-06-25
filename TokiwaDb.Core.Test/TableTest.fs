@@ -76,7 +76,7 @@ module TableTest =
       }
     in
       parameterize {
-        source (persons.ToSeq() |> Seq.toList |> List.zip testData)
+        source (persons.RecordPointers |> Seq.toList |> List.zip testData)
         run body
       }
 
@@ -199,7 +199,7 @@ module TableTest =
               [| String "Yukari"; String "Chainsaws" |]
             |])
           )
-      do! items.ToSeq() |> Seq.length |> assertEquals 2
+      do! items.RecordPointers |> Seq.length |> assertEquals 2
 
       // Rollback test.
       let transaction = testDb.Transaction
@@ -207,7 +207,7 @@ module TableTest =
       let _ =
         items.Remove([|0L|])
       let assertThatRemoveHasNotBeenPerformed () =
-        items.ToSeq() |> Seq.head |> assertSatisfies (Mortal.isAliveAt rev.Current)
+        items.RecordPointers |> Seq.head |> assertSatisfies (Mortal.isAliveAt rev.Current)
       do! assertThatRemoveHasNotBeenPerformed ()
       let () =
         transaction.Rollback()
@@ -226,7 +226,7 @@ module TableTest =
       let () =
         transaction.Commit()
       do! assertThatRemoveHasNotBeenPerformed ()
-      do! items.ToSeq() |> Seq.length |> assertEquals 3
+      do! items.RecordPointers |> Seq.length |> assertEquals 3
 
       // Inserting a duplicated record should return an error.
       let () = transaction.Begin()

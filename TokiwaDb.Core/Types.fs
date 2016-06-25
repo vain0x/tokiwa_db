@@ -134,7 +134,7 @@ module Types =
     abstract member Indexes: array<HashTableIndex>
 
     abstract member RecordById: RecordId -> option<Mortal<RecordPointer>>
-    abstract member ToSeq: unit -> seq<Mortal<RecordPointer>>
+    abstract member RecordPointers: seq<Mortal<RecordPointer>>
 
     abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<RecordId> -> unit

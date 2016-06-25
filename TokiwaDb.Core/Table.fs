@@ -170,7 +170,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
 
-  override this.ToSeq() =
+  override this.RecordPointers =
     _allRecordPointers ()
 
   override this.RecordById(recordId: RecordId) =
