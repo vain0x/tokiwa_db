@@ -132,11 +132,5 @@ type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) 
     | Time x      -> PTime x
     | String s    -> s |> _writeString |> PString
 
-type FileStorage(_file: FileInfo) =
-  inherit StreamSourceStorage
-    ( FileStreamSource(_file)
-    , FileStreamSource(FileInfo(_file.FullName + ".hashtable"))
-    )
-
 type MemoryStorage() =
   inherit StreamSourceStorage(new MemoryStreamSource(), new MemoryStreamSource())
