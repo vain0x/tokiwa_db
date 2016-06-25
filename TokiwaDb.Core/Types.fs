@@ -22,6 +22,13 @@ module Types =
     abstract member Next: RevisionId
     abstract member Increase: unit -> RevisionId
 
+  type Mortal<'x> =
+    {
+      Begin: RevisionId
+      End: RevisionId
+      Value: 'x
+    }
+
   type Name = string
 
   type Value =
@@ -79,13 +86,6 @@ module Types =
     abstract member JoinOn: array<Name> * array<Name> * Relation -> Relation
 
     abstract member ToTuple: unit -> array<Field> * array<RecordPointer>
-
-  type Mortal<'x> =
-    {
-      Begin: RevisionId
-      End: RevisionId
-      Value: 'x
-    }
 
   [<RequireQualifiedAccess>]
   type Error =
