@@ -140,7 +140,6 @@ module Types =
     abstract member Storage: Storage
 
     abstract member Tables: RevisionId -> seq<Table>
-    abstract member TryFindLivingTable: Name * RevisionId -> option<Table>
 
     abstract member CreateTable: TableSchema -> Table
     abstract member DropTable: Id -> bool

@@ -6,9 +6,6 @@ open FsYaml
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Database =
-  let tryFindLivingTable name (this: Database) =
-      this.TryFindLivingTable(name, this.CurrentRevisionId)
-
   let transact (f: unit -> 'x) (this: Database) =
     let () =
       this.Transaction.Begin()
@@ -111,10 +108,6 @@ type RepositoryDatabase(_repo: Repository) as this =
 
   override this.Tables(t) =
     _tables |> Seq.choose (Mortal.valueIfAliveAt t)
-
-  override this.TryFindLivingTable(tableName, t) =
-    _tables |> Seq.tryFind (fun table -> table.Value.Name = tableName)
-    |> Option.bind (Mortal.valueIfAliveAt t)
 
   override this.CreateTable(schema: TableSchema) =
     lock this.Transaction.SyncRoot (fun () ->
