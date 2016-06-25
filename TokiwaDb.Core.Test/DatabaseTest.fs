@@ -25,6 +25,7 @@ module DatabaseTest =
         let schema =
           { TableSchema.empty "persons" with
               Fields = [| Field.string "name"; Field.int "age" |]
+              Indexes = [| HashTableIndexSchema [| 1 |] |]
           }
         in db.CreateTable(schema)
 
