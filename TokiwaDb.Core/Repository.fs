@@ -12,7 +12,7 @@ type [<AbstractClass>] Repository() =
 
   abstract member Add: string -> StreamSource
   abstract member TryFind: string -> option<StreamSource>
-  abstract member FindManyBySuffix: string -> seq<StreamSource>
+  abstract member FindManyBySuffix: string -> seq<string * StreamSource>
 
 type MemoryRepository(_name: string) =
   inherit Repository()
@@ -44,24 +44,24 @@ type MemoryRepository(_name: string) =
   override this.FindManyBySuffix(suffix) =
     _items |> Seq.choose (fun (KeyValue (name, item)) ->
       if name.EndsWith(suffix)
-      then Some item
+      then Some (name, item)
       else None
       )
 
-type FileSystemRepository(_path: string) =
+type FileSystemRepository(_dir: DirectoryInfo) =
   inherit Repository()
-
-  let _dir = DirectoryInfo(_path)
 
   let _subdir name = DirectoryInfo(Path.Combine(_dir.FullName, name))
 
   let _subrepo (subdir: DirectoryInfo) =
-    FileSystemRepository(subdir.FullName) :> Repository
+    FileSystemRepository(subdir) :> Repository
 
   let _subfile name = FileInfo(Path.Combine(_dir.FullName, name))
 
   let _subitem (subfile: FileInfo) =
     FileStreamSource(subfile) :> StreamSource
+
+  do _dir.Create()
 
   override this.Name = _dir.Name
 
@@ -94,6 +94,6 @@ type FileSystemRepository(_path: string) =
     _dir.GetFiles()
     |> Seq.choose (fun subfile ->
       if subfile.Name.EndsWith(suffix)
-      then subfile |> _subitem |> Some
+      then (subfile.Name, subfile |> _subitem) |> Some
       else None
       )

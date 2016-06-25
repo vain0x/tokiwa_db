@@ -19,7 +19,10 @@ module RepositoryTest =
         let _ = repo.Add("y0.y")
         do! repo.TryFind("x0.x") |> Option.isSome |> assertPred
         do! repo.TryFind("____") |> assertEquals None
-        do! repo.FindManyBySuffix(".x") |> Seq.length |> assertEquals 2
+        do! repo.FindManyBySuffix(".x")
+          |> Seq.map fst
+          |> Seq.toArray
+          |> assertEquals [|"x0.x"; "x1.x"|]
       }
     ]
 

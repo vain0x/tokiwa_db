@@ -7,16 +7,18 @@ open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
 module DatabaseTest =
-  let repo    = DirectoryInfo(@"__unit_test_db")
+  let dbDir       = DirectoryInfo(@"__unit_test_db")
+
+  if dbDir.Exists then
+    dbDir.Delete((* recusive =*) true)
+
+  let repo        = FileSystemRepository(dbDir)
   let mutable savedRevision = 0L
   let insertedRow = [| String "Miku"; Int 16L|]
 
-  if repo.Exists then
-    repo.Delete((* recusive =*) true)
-
   let createTest =
     test {
-      use db      = new DirectoryDatabase(repo)
+      use db      = new RepositoryDatabase(repo)
       let rev     = db.Transaction.RevisionServer
 
       let persons =
@@ -37,7 +39,7 @@ module DatabaseTest =
 
   let reopenTest =
     test {
-      use db      = new DirectoryDatabase(repo)
+      use db      = new RepositoryDatabase(repo)
       /// Revision number should be saved.
       do! db.CurrentRevisionId |> assertEquals savedRevision
       /// Tables should be loaded.
