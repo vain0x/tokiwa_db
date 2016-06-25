@@ -5,16 +5,7 @@ open System.Collections.Generic
 type NaiveRelation(_fields: array<Field>, _recordPointers: seq<RecordPointer>) =
   inherit Relation()
 
-  override this.Fields = _fields
-  override this.RecordPointers = _recordPointers
-
-  override this.ToTuple() =
-    (_fields, _recordPointers |> Seq.toArray)
-
-  override this.Filter(pred) =
-    NaiveRelation(_fields, _recordPointers |> Seq.filter pred) :> Relation
-
-  override this.Projection(names: array<Name>) =
+  let _projection names =
     let projectionIndexes =
       let map =
         _fields |> Array.mapi (fun i (Field (name, _)) -> (name, i))
@@ -29,7 +20,7 @@ type NaiveRelation(_fields: array<Field>, _recordPointers: seq<RecordPointer>) =
         , _recordPointers |> Seq.map projection
         ) :> Relation
 
-  override this.Rename(nameMap: Map<Name, Name>) =
+  let _rename nameMap =
     let fields =
       _fields |> Array.map (fun (Field (name, type') as field) ->
         match nameMap |> Map.tryFind name with
@@ -38,10 +29,10 @@ type NaiveRelation(_fields: array<Field>, _recordPointers: seq<RecordPointer>) =
         )
     in NaiveRelation(fields, _recordPointers) :> Relation
 
-  override this.Extend(extendedType, f) =
+  let _extend extendedType f =
     NaiveRelation(extendedType, _recordPointers |> Seq.map f) :> Relation
 
-  override this.JoinOn(lFields, rFields, rRelation) =
+  let _joinOn lFields rFields (rRelation: Relation) =
     let partitionFields allFields names =
       let fieldIndexFromName =
         let map =
@@ -100,3 +91,24 @@ type NaiveRelation(_fields: array<Field>, _recordPointers: seq<RecordPointer>) =
       |]
     in
       NaiveRelation(fields, recordPointers) :> Relation
+
+  override this.Fields = _fields
+  override this.RecordPointers = _recordPointers
+
+  override this.ToTuple() =
+    (_fields, _recordPointers |> Seq.toArray)
+
+  override this.Filter(pred) =
+    NaiveRelation(_fields, _recordPointers |> Seq.filter pred) :> Relation
+
+  override this.Projection(names: array<Name>) =
+    _projection names
+
+  override this.Rename(nameMap: Map<Name, Name>) =
+    _rename nameMap
+
+  override this.Extend(extendedType, f) =
+    _extend extendedType f
+
+  override this.JoinOn(lFields, rFields, rRelation) =
+    _joinOn lFields rFields rRelation

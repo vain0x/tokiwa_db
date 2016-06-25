@@ -16,9 +16,7 @@ module StorageExtensions =
       record |> Array.map (fun value -> this.Store(value))
 
 type SequentialStorage(_src: StreamSource) =
-  /// Reads the data written at the current position.
-  /// Advances the position by the number of bytes read.
-  member this.ReadData(stream: Stream) =
+  let _readData stream =
     let len       = stream |> Stream.readInt64
     // TODO: Support "long" array.
     assert (len <= (1L <<< 31))
@@ -27,18 +25,29 @@ type SequentialStorage(_src: StreamSource) =
     let _         = stream.Read(data, 0, len)
     in data
 
-  member this.ReadData(p) =
+  let _readDataAt p =
     use stream    = _src.OpenRead()
     let _         = stream.Seek(p, SeekOrigin.Begin)
-    in this.ReadData(stream)
-    
-  member this.WriteData(data: array<byte>): StoragePointer =
+    in _readData stream
+
+  let _writeData (data: array<byte>) =
     use stream    = _src.OpenAppend()
     let p         = stream.Position
     let length    = 8L + data.LongLength
     let ()        = stream |> Stream.writeInt64 data.LongLength
     let ()        = stream.Write(data, 0, data.Length)
     in p
+
+  /// Reads the data written at the current position.
+  /// Advances the position by the number of bytes read.
+  member this.ReadData(stream: Stream): array<byte> =
+    _readData stream
+
+  member this.ReadData(p): array<byte> =
+    _readDataAt p
+    
+  member this.WriteData(data: array<byte>): StoragePointer =
+    _writeData data
 
 /// A storage which stores values in stream.
 type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
@@ -80,42 +89,48 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
     in
       HashTable<array<byte>, StoragePointer>(_hash, rootArray)
 
-  member this.HashTableElementSerializer =
-    _hashTableElementSerializer
-
-  member this.TryFindData(data: array<byte>) =
+  let _tryFindData data =
     _hashTable.TryFind(data)
 
-  member this.ReadData(p: StoragePointer) =
+  let _readData (p: StoragePointer) =
     _src.ReadData(p)
 
-  member this.WriteData(data) =
-    match this.TryFindData(data) with
+  let _writeData data =
+    match _tryFindData data with
     | Some p -> p
     | None ->
       let p       = _src.WriteData(data)
       let ()      =  _hashTable.Update(data, p)
       in p
 
-  member this.ReadString(p: StoragePointer) =
-    UTF8Encoding.UTF8.GetString(this.ReadData(p))
+  let _readString p =
+    UTF8Encoding.UTF8.GetString(_readData p)
 
-  member this.WriteString(s: string) =
-    this.WriteData(UTF8Encoding.UTF8.GetBytes(s))
+  let _writeString (s: string) =
+    UTF8Encoding.UTF8.GetBytes(s) |> _writeData
+
+  member this.HashTableElementSerializer =
+    _hashTableElementSerializer
+
+  member this.TryFindData(data) =
+    _tryFindData data
+
+  member this.WriteData(data) =
+    _writeData data
 
   override this.Derefer(valuePtr): Value =
     match valuePtr with
     | PInt x       -> Int x
     | PFloat x     -> Float x
     | PTime x      -> Time x
-    | PString p    -> this.ReadString(p) |> Value.String
+    | PString p    -> p |> _readString |> Value.String
 
   override this.Store(value) =
     match value with
     | Int x       -> PInt x
     | Float x     -> PFloat x
     | Time x      -> PTime x
-    | String s    -> this.WriteString(s) |> PString
+    | String s    -> s |> _writeString |> PString
 
 type FileStorage(_file: FileInfo) =
   inherit StreamSourceStorage

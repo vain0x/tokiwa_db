@@ -70,13 +70,45 @@ type RepositoryDatabase(_repo: Repository) as this =
 
   let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> Transaction
 
+  let _createTable schema =
+    lock this.Transaction.SyncRoot (fun () ->
+      let tableId         = _tables.Count |> int64
+      let revisionId      = _revisionServer.Increase()
+      let repo            = _tableRepo.AddSubrepository(string tableId)
+      let table           = RepositoryTable.Create(this, tableId, repo, schema, revisionId) :> Table
+      /// Add table.
+      _tables.Add(table)
+      /// Return the new table.
+      table
+      )
+
+  let _dropTable tableId =
+    if 0L <= tableId && tableId < (_tables.Count |> int64) then
+      let table           = _tables.[int tableId]
+      let ()              = table.Drop()
+      /// Return true, which indicates some table is dropped.
+      true
+    else
+      false
+
+  let _perform operations =
+    for operation in operations do
+      match operation with
+      | InsertRecords (tableId, records) ->
+        _tables.[int tableId].PerformInsert(records)
+      | RemoveRecords (tableId, recordIds) ->
+        _tables.[int tableId].PerformRemove(recordIds)
+
   let mutable _isDisposed = false
+
+  let _dispose () =
+    if not _isDisposed then
+      _isDisposed <- true
+      _saveConfig ()
 
   interface IDisposable with
     override this.Dispose() =
-      if not _isDisposed then
-        _isDisposed <- true
-        _saveConfig ()
+      _dispose ()
 
   override this.Name =
     _repo.Name
@@ -95,33 +127,13 @@ type RepositoryDatabase(_repo: Repository) as this =
       )
 
   override this.CreateTable(schema: TableSchema) =
-    lock this.Transaction.SyncRoot (fun () ->
-      let tableId         = _tables.Count |> int64
-      let revisionId      = _revisionServer.Increase()
-      let repo            = _tableRepo.AddSubrepository(string tableId)
-      let table           = RepositoryTable.Create(this, tableId, repo, schema, revisionId) :> Table
-      /// Add table.
-      _tables.Add(table)
-      /// Return the new table.
-      table
-      )
+    _createTable schema
 
   override this.DropTable(tableId) =
-    if 0L <= tableId && tableId < (_tables.Count |> int64) then
-      let table           = _tables.[int tableId]
-      let ()              = table.Drop()
-      /// Return true, which indicates some table is dropped.
-      true
-    else
-      false
+    _dropTable tableId
 
   override this.Perform(operations) =
-    for operation in operations do
-      match operation with
-      | InsertRecords (tableId, records) ->
-        _tables.[int tableId].PerformInsert(records)
-      | RemoveRecords (tableId, recordIds) ->
-        _tables.[int tableId].PerformRemove(recordIds)
+    _perform operations
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))
