@@ -32,75 +32,6 @@ module Database =
         this |> tryFindLivingTable tableName
         |> Option.iter (fun table -> table.PerformRemove(recordIds))
 
-type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tables: list<Mortal<Table>>) as this =
-  inherit Database()
-
-  let _transaction = MemoryTransaction(this.Perform, _rev) :> Transaction
-
-  let mutable _tables = _tables
-
-  let _tryFindTable name =
-    _tables |> List.tryFind (fun table -> table.Value.Name = name)
-
-  let _tryFindLivingTable t name =
-    _tryFindTable name
-    |> Option.bind (Mortal.valueIfAliveAt t)
-
-  new (name: string) =
-    MemoryDatabase(name, MemoryRevisionServer() :> RevisionServer, new MemoryStorage(), [])
-
-  override this.Name = _name
-
-  override this.Transaction =
-    _transaction
-
-  override this.Storage =
-    _storage
-
-  override this.Tables(t) =
-    _tables |> Seq.choose (fun table ->
-      if table |> Mortal.isAliveAt t
-      then Some table.Value
-      else None
-      )
-
-  override this.TryFindLivingTable(tableName, t) =
-    _tryFindLivingTable t tableName
-
-  override this.CreateTable(schema) =
-    lock this.Transaction.SyncRoot (fun () ->
-      let revisionId =
-        _rev.Increase()
-      let indexes =
-        schema.Indexes |> Array.map
-          (function
-          | HashTableIndexSchema fieldIndexes ->
-            StreamHashTableIndex(fieldIndexes, new MemoryStreamSource()) :> HashTableIndex
-          )
-      let table =
-        StreamTable(this :> Database, schema, indexes, new MemoryStreamSource()) :> Table
-      let () =
-        _tables <- (table |> Mortal.create revisionId) :: _tables
-      in table
-      )
-
-  override this.DropTable(name) =
-    lock this.Transaction.SyncRoot (fun () ->
-      let revisionId =
-        _rev.Increase()
-      let (droppedTables, tables') =
-        _tables |> List.partition (fun table -> table.Value.Name = name)
-      let droppedTables' =
-        droppedTables |> List.map (Mortal.kill revisionId)
-      let () =
-        _tables <- droppedTables' @ tables'
-      in
-        droppedTables |> List.isEmpty |> not
-      )
-
-  override this.Perform(operations) =
-    this |> Database.perform operations
-
 type RepositoryDatabaseConfig =
   {
     CurrentRevision: RevisionId
@@ -221,11 +152,11 @@ type RepositoryDatabase(_repo: Repository) as this =
             match indexSchema with
             | HashTableIndexSchema fieldIndexes ->
               let indexSource   = _tableRepo.Add(sprintf "%s.%d.ht_index" name i)
-              in StreamHashTableIndex(fieldIndexes, indexSource)
+              in StreamHashTableIndex(fieldIndexes, indexSource) :> HashTableIndex
             )
         /// Create table file.
         let tableSource     = _tableRepo.Add(name + ".table")
-        let table           = StreamTable(this, schema, tableSource) :> Table
+        let table           = StreamTable(this, schema, indexes, tableSource) :> Table
         /// Add table.
         _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
         /// Return the new table.
@@ -254,3 +185,6 @@ type RepositoryDatabase(_repo: Repository) as this =
 
   override this.Perform(operations) =
     this |> Database.perform operations
+
+type MemoryDatabase(_name: string) =
+  inherit RepositoryDatabase(MemoryRepository(_name))

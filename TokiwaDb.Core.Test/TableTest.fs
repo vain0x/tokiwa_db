@@ -6,7 +6,7 @@ open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
 module TableTest =
-  let testDb = MemoryDatabase("testDb")
+  let testDb = new MemoryDatabase("testDb")
   let storage = testDb.Storage
   let rev = testDb.Transaction.RevisionServer
   
