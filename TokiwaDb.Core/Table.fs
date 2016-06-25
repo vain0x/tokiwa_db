@@ -4,7 +4,7 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
@@ -123,8 +123,10 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       return recordPointers
     }
 
-  new (db, schema, source) =
-    StreamTable(db, schema, [||], source)
+  new (db, tableId, schema, source) =
+    StreamTable(db, tableId, schema, [||], source)
+
+  override this.Id = _id
 
   override this.Schema = _schema
 

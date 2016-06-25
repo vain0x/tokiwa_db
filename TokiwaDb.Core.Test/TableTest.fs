@@ -104,9 +104,10 @@ module TableTest =
 
   let dropTest =
     test {
-      do! testDb.DropTable("persons") |> assertEquals true
+      do! testDb.DropTable(persons.Id) |> assertEquals true
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
-      do! testDb.DropTable("INVALID NAME") |> assertEquals false
+      do! testDb.DropTable(-1L) |> assertEquals false
+      do! testDb.DropTable(2L) |> assertEquals false
     }
 
   let ``Insert/Remove to table with an index`` =

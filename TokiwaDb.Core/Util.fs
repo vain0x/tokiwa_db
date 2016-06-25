@@ -44,6 +44,10 @@ module Array =
     then None
     else Some xs.[0]
 
+module ResizeArray =
+  let ofSeq (xs: seq<'x>): ResizeArray<'x> =
+    ResizeArray(xs)
+
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length

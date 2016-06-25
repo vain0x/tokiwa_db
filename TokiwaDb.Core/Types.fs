@@ -117,6 +117,7 @@ module Types =
     abstract member Remove: RecordPointer -> bool
 
   type [<AbstractClass>] Table() =
+    abstract member Id: Id
     abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
@@ -133,18 +134,16 @@ module Types =
     member this.Name = this.Schema.Name
 
   and [<AbstractClass>] Database() =
-
     abstract member Name: string
 
     abstract member Transaction: Transaction
-
     abstract member Storage: Storage
 
     abstract member Tables: RevisionId -> seq<Table>
     abstract member TryFindLivingTable: Name * RevisionId -> option<Table>
 
     abstract member CreateTable: TableSchema -> Table
-    abstract member DropTable: Name -> bool
+    abstract member DropTable: Id -> bool
     abstract member Perform: array<Operation> -> unit
 
     member this.CurrentRevisionId = this.Transaction.RevisionServer.Current
