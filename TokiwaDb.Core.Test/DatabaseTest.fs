@@ -12,13 +12,12 @@ module DatabaseTest =
   if dbDir.Exists then
     dbDir.Delete((* recusive =*) true)
 
-  let repo        = FileSystemRepository(dbDir)
   let mutable savedRevision = 0L
   let insertedRow = [| String "Miku"; Int 16L|]
 
   let createTest =
     test {
-      use db      = new RepositoryDatabase(repo)
+      use db      = new DirectoryDatabase(dbDir)
       let rev     = db.Transaction.RevisionServer
 
       let persons =
@@ -40,7 +39,7 @@ module DatabaseTest =
 
   let reopenTest =
     test {
-      use db      = new RepositoryDatabase(repo)
+      use db      = new DirectoryDatabase(dbDir)
       /// Revision number should be saved.
       do! db.CurrentRevisionId |> assertEquals savedRevision
       /// Tables should be loaded.

@@ -8,10 +8,10 @@ open Chessie.ErrorHandling
 [<AutoOpen>]
 module Types =
   /// A pointer to a storage.
-  type pointer = int64
+  type StoragePointer = int64
 
-  /// Identity number.
-  type Id = int64
+  type RecordId = int64
+  type TableId = int64
 
   /// A version number of database.
   /// The initial value is 0.
@@ -48,7 +48,7 @@ module Types =
   type ValuePointer =
     | PInt           of int64
     | PFloat         of float
-    | PString        of pointer
+    | PString        of StoragePointer
     | PTime          of DateTime
 
   type ValueType =
@@ -98,14 +98,14 @@ module Types =
 
   [<RequireQualifiedAccess>]
   type Error =
-    | TableAlreadyDroped  of Id
+    | TableAlreadyDroped  of TableId
     | WrongRecordType     of array<Field> * Record
     | DuplicatedRecord    of RecordPointer
-    | InvalidId           of Id
+    | InvalidRecordId     of RecordId
 
   type Operation =
-    | InsertRecords       of tableId: Id * array<RecordPointer>
-    | RemoveRecords       of tableId: Id * array<Id>
+    | InsertRecords       of TableId * array<RecordPointer>
+    | RemoveRecords       of TableId * array<RecordId>
 
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int
@@ -121,25 +121,25 @@ module Types =
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
-    abstract member TryFind: RecordPointer -> option<Id>
+    abstract member TryFind: RecordPointer -> option<RecordId>
 
-    abstract member Insert: RecordPointer * Id -> unit
+    abstract member Insert: RecordPointer * RecordId -> unit
     abstract member Remove: RecordPointer -> bool
 
   type [<AbstractClass>] Table() =
-    abstract member Id: Id
+    abstract member Id: TableId
     abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
     abstract member Database: Database
     abstract member Indexes: array<HashTableIndex>
 
-    abstract member RecordById: Id -> option<Mortal<RecordPointer>>
-    abstract member ToSeq: unit -> seq<Mortal<RecordPointer>>
+    abstract member RecordById: RecordId -> option<Mortal<RecordPointer>>
+    abstract member RecordPointers: seq<Mortal<RecordPointer>>
 
     abstract member PerformInsert: array<RecordPointer> -> unit
-    abstract member PerformRemove: array<Id> -> unit
-    abstract member Insert: array<Record> -> Result<array<Id>, Error>
-    abstract member Remove: array<Id> -> Result<unit, Error>
+    abstract member PerformRemove: array<RecordId> -> unit
+    abstract member Insert: array<Record> -> Result<array<RecordId>, Error>
+    abstract member Remove: array<RecordId> -> Result<unit, Error>
     abstract member Drop: unit -> unit
 
     member this.Name = this.Schema.Name
@@ -157,7 +157,6 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: TableSchema -> Table
-    abstract member DropTable: Id -> bool
     abstract member Perform: array<Operation> -> unit
 
     member this.CurrentRevisionId = this.Transaction.RevisionServer.Current

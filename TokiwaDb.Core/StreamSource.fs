@@ -49,9 +49,7 @@ type MemoryStreamSource(_buffer: array<byte>) =
 
   let mutable _buffer = _buffer
 
-  new() = new MemoryStreamSource([||])
-
-  member private this.Open(index) =
+  let _open index =
     let stream =
       { new MemoryStream() with
           override this.Close() =
@@ -62,14 +60,16 @@ type MemoryStreamSource(_buffer: array<byte>) =
     let _     = stream.Seek(index, SeekOrigin.Begin)
     in stream
 
+  new() = new MemoryStreamSource([||])
+
   override this.OpenReadWrite() =
-    this.Open(index = 0L) :> Stream
+    _open 0L :> Stream
 
   override this.OpenRead() =
     this.OpenReadWrite()
 
   override this.OpenAppend() =
-    this.Open(index = _buffer.LongLength) :> Stream
+    _open _buffer.LongLength :> Stream
 
   override this.Clear() =
     _buffer <- [||]

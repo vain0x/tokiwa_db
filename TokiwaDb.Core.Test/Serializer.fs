@@ -12,8 +12,7 @@ type FixedStringSerializer() =
   override this.Length = 4L
 
   override this.Serialize(s) =
-    let bs      = UTF8Encoding.UTF8.GetBytes(s)
-    in bs
+    UTF8Encoding.UTF8.GetBytes(s)
 
   override this.Deserialize(bs) = UTF8Encoding.UTF8.GetString(bs)
 

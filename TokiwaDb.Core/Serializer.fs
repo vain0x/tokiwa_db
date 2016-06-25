@@ -53,22 +53,28 @@ type FixedLengthArraySerializer<'x>
   let _dataLength =
     _serializer.Length * _length
 
-  override this.Length =
-    _dataLength
-
-  override this.Serialize(xs) =
+  let _serialize xs =
     [|
       for x in xs do
         yield! _serializer.Serialize(x)
     |]
 
-  override this.Deserialize(data) =
+  let _deserialize (data: array<byte>) =
     [|
       for i in 0L..(_length - 1L) do
         let p = i * _serializer.Length |> int
         let q = (i + 1L) * _serializer.Length - 1L |> int
         yield _serializer.Deserialize(data.[p..q])
     |]
+
+  override this.Length =
+    _dataLength
+
+  override this.Serialize(xs) =
+    _serialize xs
+
+  override this.Deserialize(data) =
+    _deserialize data
 
 type FixedLengthTupleSerializer<'t>(_serializers: array<INongenericFixedLengthSerializer>) =
   inherit FixedLengthSerializer<'t>()
@@ -118,10 +124,7 @@ type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSe
   let _length =
     (_serializers |> Array.map (fun s -> s.Length) |> Array.max) + 1L
 
-  override this.Length =
-    _length
-
-  override this.Serialize(u: 'u) =
+  let _serialize (u: 'u) =
     let (case, values)  = FSharpValue.GetUnionFields(u, typeof<'u>)
     let tag             = case.Tag |> byte
     let serializer      = _serializers.[case.Tag]
@@ -135,7 +138,7 @@ type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSe
         let tupleType   = FSharpType.MakeTupleType(fieldTypes)
         in serializer.Serialize(FSharpValue.MakeTuple(values, tupleType))
     let tailpad         =
-      Array.zeroCreate (this.Length - (1L + data.LongLength) |> int)
+      Array.zeroCreate (_length - (1L + data.LongLength) |> int)
     in
       [|
         yield tag
@@ -143,7 +146,7 @@ type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSe
         yield! tailpad
       |]
 
-  override this.Deserialize(data) =
+  let _deserialize (data: array<byte>) =
     let tag         = data.[0] |> int
     let case        = _cases.[tag]
     let fields      = case.GetFields()
@@ -155,6 +158,15 @@ type FixedLengthUnionSerializer<'u>(_serializers: array<INongenericFixedLengthSe
       | 1 -> [| serializer.Deserialize(data) |]
       | _ -> FSharpValue.GetTupleFields(serializer.Deserialize(data))
     in FSharpValue.MakeUnion(case, values) |> unbox<'u>
+
+  override this.Length =
+    _length
+
+  override this.Serialize(u: 'u) =
+    _serialize u
+
+  override this.Deserialize(data) =
+    _deserialize data
 
 type Int64Serializer() =
   inherit FixedLengthSerializer<int64>()

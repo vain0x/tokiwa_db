@@ -76,7 +76,7 @@ module TableTest =
       }
     in
       parameterize {
-        source (persons.ToSeq() |> Seq.toList |> List.zip testData)
+        source (persons.RecordPointers |> Seq.toList |> List.zip testData)
         run body
       }
 
@@ -96,7 +96,7 @@ module TableTest =
     test {
       let containsInvalidId =
         function
-        | Fail ([Error.InvalidId _]) -> true
+        | Fail ([Error.InvalidRecordId _]) -> true
         | _ -> false
       do! persons.Remove([| -1L |]) |> assertSatisfies containsInvalidId
       do! persons.Remove([| 9L |]) |> assertSatisfies containsInvalidId
@@ -106,8 +106,6 @@ module TableTest =
     test {
       let () = persons.Drop()
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
-      do! testDb.DropTable(-1L) |> assertEquals false
-      do! testDb.DropTable(2L) |> assertEquals false
       // Try to insert into/remove from dropped table should cause an error.
       let assertCausesTableAlreadyDroppedError result =
         result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)
@@ -199,7 +197,7 @@ module TableTest =
               [| String "Yukari"; String "Chainsaws" |]
             |])
           )
-      do! items.ToSeq() |> Seq.length |> assertEquals 2
+      do! items.RecordPointers |> Seq.length |> assertEquals 2
 
       // Rollback test.
       let transaction = testDb.Transaction
@@ -207,7 +205,7 @@ module TableTest =
       let _ =
         items.Remove([|0L|])
       let assertThatRemoveHasNotBeenPerformed () =
-        items.ToSeq() |> Seq.head |> assertSatisfies (Mortal.isAliveAt rev.Current)
+        items.RecordPointers |> Seq.head |> assertSatisfies (Mortal.isAliveAt rev.Current)
       do! assertThatRemoveHasNotBeenPerformed ()
       let () =
         transaction.Rollback()
@@ -226,7 +224,7 @@ module TableTest =
       let () =
         transaction.Commit()
       do! assertThatRemoveHasNotBeenPerformed ()
-      do! items.ToSeq() |> Seq.length |> assertEquals 3
+      do! items.RecordPointers |> Seq.length |> assertEquals 3
 
       // Inserting a duplicated record should return an error.
       let () = transaction.Begin()

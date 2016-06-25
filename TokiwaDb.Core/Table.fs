@@ -4,7 +4,7 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
+type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   inherit Table()
 
   let mutable _schema =
@@ -27,6 +27,9 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
   let _fields =
     _schema |> TableSchema.toFields
 
+  let _isAliveAt t =
+    _schema.LifeSpan |> Mortal.isAliveAt t
+
   let _recordLength =
     // Count of fields + begin/end revision ids - record id.
     (_fields.LongLength + 2L - 1L) * 8L
@@ -48,7 +51,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
       _insertedRecordsInTransaction () |> Seq.length |> int64
     in _hardLength + countScheduledInserts
 
-  let _positionFromId (recordId: Id): option<pointer> =
+  let _positionFromId (recordId: RecordId): option<int64> =
     if 0L <= recordId && recordId < _length ()
     then recordId * _recordLength |> Some
     else None
@@ -83,6 +86,13 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
         if rp |> Mortal.isAliveAt t then
           yield rp.Value
     }
+
+  let _recordById recordId =
+    _positionFromId recordId |> Option.map (fun position ->
+      use stream    = _recordPointersSource.OpenRead()
+      let _       = stream.Seek(position, SeekOrigin.Begin)
+      in stream |> _readRecordPointer
+      )
 
   let _validateRecordType (record: Record) =
     trial {
@@ -137,9 +147,89 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
       return recordPointers
     }
 
+  let _performInsert recordPointers =
+    let revId           = _db.Transaction.RevisionServer.Next
+    use stream          = _recordPointersSource.OpenAppend()
+    let ()              =
+      for rp in recordPointers do
+        for index in _indexes do
+          index.Insert(index.Projection(rp), _hardLength)
+        stream |> _writeRecordPointer revId rp
+        _hardLength <- _hardLength + 1L
+    in ()
+
+  let _insert records =
+    lock _db.Transaction.SyncRoot (fun () ->
+      trial {
+        if _isAliveAt _db.CurrentRevisionId |> not then
+          do! fail <| Error.TableAlreadyDroped _id
+        let! recordPointers = _validateInsertedRecords records
+        let length = _length ()
+        let (recordIds, recordPointers) =
+          // Give indexes to the new records.
+          recordPointers
+          |> Array.mapi (fun i rp ->
+            let recordId = length + int64 i
+            in (recordId, Array.append [| PInt recordId |] rp)
+            )
+          |> Array.unzip
+        let () =
+          _db.Transaction.Add(InsertRecords (_id, recordPointers))
+        return recordIds
+      })
+
+  let _performRemove recordIds =
+    use stream    = _recordPointersSource.OpenReadWrite()
+    let revId     = _db.Transaction.RevisionServer.Next
+    let ()        =
+      for recordId in recordIds |> Array.sort do
+        match _positionFromId recordId with
+        | None -> ()
+        | Some position ->
+          let _         = stream.Seek(position, SeekOrigin.Begin)
+          let record    = stream |> _readRecordPointer
+          in
+            if (record |> Mortal.isAliveAt revId) then
+              stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
+              Mortal.killInStream revId stream
+              stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
+              for index in _indexes do
+                index.Remove(index.Projection(record.Value)) |> ignore
+    in ()
+
+  let _remove recordIds =
+    trial {
+      if _isAliveAt _db.CurrentRevisionId |> not then
+        do! fail <| Error.TableAlreadyDroped _id
+      let! recordIds =
+        [|
+          for recordId in recordIds ->
+            trial {
+              let! (_: int64) =
+                recordId |> _positionFromId |> failIfNone (Error.InvalidRecordId recordId)
+              return recordId
+            }
+        |]
+        |> Trial.collect
+      let () =
+        _db.Transaction.Add(RemoveRecords (_id, recordIds |> List.toArray))
+      return ()
+    }
+
+  let _drop () =
+    lock _db.Transaction.SyncRoot (fun () ->
+      let revisionId      = _db.Transaction.RevisionServer.Increase()
+      let ()              =
+        _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
+      let ()              =
+        (_repo.TryFind(".schema") |> Option.get)
+          .WriteString(_schema |> FsYaml.customDump)
+      in ()
+      )
+
   static member Create
     ( db: Database
-    , tableId: Id
+    , tableId: TableId
     , repo: Repository
     , schema: TableSchema
     , revisionId: RevisionId
@@ -170,94 +260,25 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
   override this.Relation(t) =
     NaiveRelation(_fields, _aliveRecordPointers t) :> Relation
 
-  override this.ToSeq() =
+  override this.RecordPointers =
     _allRecordPointers ()
 
-  override this.RecordById(recordId: Id) =
-    _positionFromId recordId |> Option.map (fun position ->
-      use stream    = _recordPointersSource.OpenRead()
-      let _       = stream.Seek(position, SeekOrigin.Begin)
-      in stream |> _readRecordPointer
-      )
+  override this.RecordById(recordId) =
+    _recordById recordId
 
   override this.Database = _db
 
-  override this.PerformInsert(recordPointers: array<RecordPointer>) =
-    let revId           = _db.Transaction.RevisionServer.Next
-    use stream          = _recordPointersSource.OpenAppend()
-    let ()              =
-      for rp in recordPointers do
-        for index in _indexes do
-          index.Insert(index.Projection(rp), _hardLength)
-        stream |> _writeRecordPointer revId rp
-        _hardLength <- _hardLength + 1L
-    in ()
+  override this.PerformInsert(recordPointers) =
+    _performInsert recordPointers
 
   override this.Insert(records: array<Record>) =
-    lock _db.Transaction.SyncRoot (fun () ->
-      trial {
-        if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
-          do! fail <| Error.TableAlreadyDroped this.Id
-        let! recordPointers = _validateInsertedRecords records
-        let length = _length ()
-        let (recordIds, recordPointers) =
-          // Give indexes to the new records.
-          recordPointers
-          |> Array.mapi (fun i rp ->
-            let recordId = length + int64 i
-            in (recordId, Array.append [| PInt recordId |] rp)
-            )
-          |> Array.unzip
-        let () =
-          _db.Transaction.Add(InsertRecords (this.Id, recordPointers))
-        return recordIds
-      })
+    _insert records
 
   override this.PerformRemove(recordIds) =
-    use stream    = _recordPointersSource.OpenReadWrite()
-    let revId     = _db.Transaction.RevisionServer.Next
-    let ()        =
-      for recordId in recordIds |> Array.sort do
-        match _positionFromId recordId with
-        | None -> ()
-        | Some position ->
-          let _         = stream.Seek(position, SeekOrigin.Begin)
-          let record    = stream |> _readRecordPointer
-          in
-            if (record |> Mortal.isAliveAt revId) then
-              stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              Mortal.killInStream revId stream
-              stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
-              for index in _indexes do
-                index.Remove(index.Projection(record.Value)) |> ignore
-    in ()
+    _performRemove recordIds
 
   override this.Remove(recordIds) =
-    trial {
-      if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
-        do! fail <| Error.TableAlreadyDroped this.Id
-      let! recordIds =
-        [|
-          for recordId in recordIds ->
-            trial {
-              let! (_: pointer) =
-                recordId |> _positionFromId |> failIfNone (Error.InvalidId recordId)
-              return recordId
-            }
-        |]
-        |> Trial.collect
-      let () =
-        _db.Transaction.Add(RemoveRecords (this.Id, recordIds |> List.toArray))
-      return ()
-    }
+    _remove recordIds
 
   override this.Drop() =
-    lock _db.Transaction.SyncRoot (fun () ->
-      let revisionId      = _db.Transaction.RevisionServer.Increase()
-      let ()              =
-        _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
-      let ()              =
-        (_repo.TryFind(".schema") |> Option.get)
-          .WriteString(_schema |> FsYaml.customDump)
-      in ()
-      )
+    _drop ()

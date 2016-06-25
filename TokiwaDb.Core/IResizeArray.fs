@@ -23,34 +23,43 @@ type StreamArray<'x>
   let _length () =
     _source.Length / _serializer.Length
 
+  let _initialize length x =
+    let data      = _serializer.Serialize(x)
+    let ()        = _source.Clear()
+    use stream    = _source.OpenReadWrite()
+    let ()        =
+      for i in 0L..(length - 1L) do
+        stream.Write(data, 0, data.Length)
+    in ()
+
+  let _get i =
+    if 0L <= i && i < _length () then
+      let buffer    = Array.zeroCreate (int _serializer.Length)
+      use stream    = _source.OpenRead()
+      let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
+      let _         = stream.Read(buffer, 0, buffer.Length)
+      in _serializer.Deserialize(buffer)
+    else
+      raise (ArgumentException())
+
+  let _set i x =
+    if 0L <= i && i < _length () then
+      let data      = _serializer.Serialize(x)
+      use stream    = _source.OpenReadWrite()
+      let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
+      in stream.Write(data, 0, data.Length)
+    else
+      raise (ArgumentException())
+
   interface IResizeArray<'x> with
     override this.Length =
       _length ()
 
     override this.Initialize(length: int64, x: 'x) =
-      let data      = _serializer.Serialize(x)
-      let ()        = _source.Clear()
-      use stream    = _source.OpenReadWrite()
-      let ()        =
-        for i in 0L..(length - 1L) do
-          stream.Write(data, 0, data.Length)
-      in ()
+      _initialize length x
 
     override this.Get(i: int64): 'x =
-      if 0L <= i && i < _length () then
-        let buffer    = Array.zeroCreate (int _serializer.Length)
-        use stream    = _source.OpenRead()
-        let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
-        let _         = stream.Read(buffer, 0, buffer.Length)
-        in _serializer.Deserialize(buffer)
-      else
-        raise (ArgumentException())
+      _get i
 
     override this.Set(i: int64, x: 'x) =
-      if 0L <= i && i < _length () then
-        let data      = _serializer.Serialize(x)
-        use stream    = _source.OpenReadWrite()
-        let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
-        in stream.Write(data, 0, data.Length)
-      else
-        raise (ArgumentException())
+      _set i x

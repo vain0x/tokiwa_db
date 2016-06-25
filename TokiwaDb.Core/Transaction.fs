@@ -15,16 +15,7 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
 
   let mutable _operationsStack = ([]: list<ResizeArray<Operation>>)
 
-  override this.BeginCount =
-    _operationsStack |> List.length
-
-  override this.Operations =
-    _operationsStack |> Seq.collect id
-
-  override this.Begin() =
-    _operationsStack <- ResizeArray<Operation>() :: _operationsStack
-
-  override this.Add(operation) =
+  let _add operation =
     lock _syncRoot (fun () ->
       match _operationsStack with
       | [] ->
@@ -33,7 +24,7 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
         operations.Add(operation)
       )
 
-  override this.Commit() =
+  let _commit () =
     lock _syncRoot (fun () ->
       match _operationsStack with
       | [] ->
@@ -46,7 +37,7 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
         _operationsStack <- stack
       )
 
-  override this.Rollback() =
+  let _rollback () =
     lock _syncRoot (fun () ->
       match _operationsStack with
       | [] ->
@@ -54,6 +45,24 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
       | operations :: stack ->
         _operationsStack <- stack
       )
+
+  override this.BeginCount =
+    _operationsStack |> List.length
+
+  override this.Operations =
+    _operationsStack |> Seq.collect id
+
+  override this.Begin() =
+    _operationsStack <- ResizeArray<Operation>() :: _operationsStack
+
+  override this.Add(operation) =
+    _add operation
+
+  override this.Commit() =
+    _commit ()
+
+  override this.Rollback() =
+    _rollback ()
 
   override this.SyncRoot = _syncRoot
 
