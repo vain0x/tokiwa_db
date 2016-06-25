@@ -22,12 +22,15 @@ module Types =
     abstract member Next: RevisionId
     abstract member Increase: unit -> RevisionId
 
-  type Mortal<'x> =
-    {
-      Birth: RevisionId
-      Death: RevisionId
-      Value: 'x
-    }
+  type IMortal =
+    abstract member Birth: option<RevisionId>
+    abstract member Death: option<RevisionId>
+
+  type [<AbstractClass>] Mortal<'x>() =
+    abstract member Value: 'x
+    interface IMortal with
+      override this.Birth = None
+      override this.Death = None
 
   type Name = string
 
