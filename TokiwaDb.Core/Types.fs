@@ -157,7 +157,6 @@ module Types =
     abstract member Tables: RevisionId -> seq<Table>
 
     abstract member CreateTable: TableSchema -> Table
-    abstract member DropTable: TableId -> bool
     abstract member Perform: array<Operation> -> unit
 
     member this.CurrentRevisionId = this.Transaction.RevisionServer.Current

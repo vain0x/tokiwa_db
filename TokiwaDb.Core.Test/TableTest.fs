@@ -106,8 +106,6 @@ module TableTest =
     test {
       let () = persons.Drop()
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
-      do! testDb.DropTable(-1L) |> assertEquals false
-      do! testDb.DropTable(2L) |> assertEquals false
       // Try to insert into/remove from dropped table should cause an error.
       let assertCausesTableAlreadyDroppedError result =
         result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)

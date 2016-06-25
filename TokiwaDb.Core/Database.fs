@@ -82,15 +82,6 @@ type RepositoryDatabase(_repo: Repository) as this =
       table
       )
 
-  let _dropTable tableId =
-    if 0L <= tableId && tableId < (_tables.Count |> int64) then
-      let table           = _tables.[int tableId]
-      let ()              = table.Drop()
-      /// Return true, which indicates some table is dropped.
-      true
-    else
-      false
-
   let _perform operations =
     for operation in operations do
       match operation with
@@ -128,9 +119,6 @@ type RepositoryDatabase(_repo: Repository) as this =
 
   override this.CreateTable(schema: TableSchema) =
     _createTable schema
-
-  override this.DropTable(tableId) =
-    _dropTable tableId
 
   override this.Perform(operations) =
     _perform operations
