@@ -17,7 +17,7 @@ module TableTest =
       [| String "Kaito"; Int 20L |]
     ]
 
-  let insertTest =
+  let persons =
     let schema =
       { TableSchema.empty "persons" with
           Fields =
@@ -26,8 +26,10 @@ module TableTest =
               Field.int "age"
             |]
       }
-    let persons =
+    in
       testDb.CreateTable(schema)
+
+  let insertTest =
     test {
       do! persons.Insert(testData |> List.toArray)
         |> Trial.returnOrFail
@@ -42,15 +44,6 @@ module TableTest =
       do! actual |> assertEquals expected
     }
     
-  module TestData =
-    let testDb = testDb
-
-    let persons =
-      testDb.Tables(rev.Current)
-      |> Seq.find (fun table -> table.Name = "persons")
-
-  open TestData
-
   let insertFailureTest =
     test {
       // Wrong count of fields.
@@ -105,7 +98,7 @@ module TableTest =
   let dropTest =
     test {
       let () = persons.Drop()
-      do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
+      do! persons |> assertSatisfies (Mortal.isAliveAt testDb.CurrentRevisionId >> not)
       // Try to insert into/remove from dropped table should cause an error.
       let assertCausesTableAlreadyDroppedError result =
         result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)

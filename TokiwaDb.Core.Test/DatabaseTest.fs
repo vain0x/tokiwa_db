@@ -28,7 +28,7 @@ module DatabaseTest =
           }
         in db.CreateTable(schema)
 
-      let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
+      let actual = db.Tables |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]
 
       let _ = persons.Insert([| insertedRow |])
@@ -43,7 +43,7 @@ module DatabaseTest =
       /// Revision number should be saved.
       do! db.CurrentRevisionId |> assertEquals savedRevision
       /// Tables should be loaded.
-      let tables  = db.Tables(savedRevision)
+      let tables  = db.Tables |> Seq.filter (Mortal.isAliveAt savedRevision)
       let actual  = tables |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals ["persons"]
       /// Inserted rows should be saved.

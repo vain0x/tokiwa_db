@@ -154,7 +154,7 @@ module Types =
     abstract member Transaction: Transaction
     abstract member Storage: Storage
 
-    abstract member Tables: RevisionId -> seq<Table>
+    abstract member Tables: seq<Table>
 
     abstract member CreateTable: TableSchema -> Table
     abstract member Perform: array<Operation> -> unit
