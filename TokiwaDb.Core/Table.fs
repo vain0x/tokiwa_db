@@ -211,3 +211,6 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
         _db.Transaction.Add(RemoveRecords (this.Id, recordIds |> List.toArray))
       return ()
     }
+
+  override this.Drop() =
+    _db.DropTable(this.Id) |> ignore
