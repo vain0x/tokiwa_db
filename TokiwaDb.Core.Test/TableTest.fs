@@ -96,7 +96,7 @@ module TableTest =
     test {
       let containsInvalidId =
         function
-        | Fail ([Error.InvalidId _]) -> true
+        | Fail ([Error.InvalidRecordId _]) -> true
         | _ -> false
       do! persons.Remove([| -1L |]) |> assertSatisfies containsInvalidId
       do! persons.Remove([| 9L |]) |> assertSatisfies containsInvalidId

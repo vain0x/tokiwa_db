@@ -4,7 +4,7 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
+type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   inherit Table()
 
   let mutable _schema =
@@ -48,7 +48,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
       _insertedRecordsInTransaction () |> Seq.length |> int64
     in _hardLength + countScheduledInserts
 
-  let _positionFromId (recordId: Id): option<int64> =
+  let _positionFromId (recordId: RecordId): option<int64> =
     if 0L <= recordId && recordId < _length ()
     then recordId * _recordLength |> Some
     else None
@@ -139,7 +139,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
 
   static member Create
     ( db: Database
-    , tableId: Id
+    , tableId: TableId
     , repo: Repository
     , schema: TableSchema
     , revisionId: RevisionId
@@ -173,7 +173,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
   override this.ToSeq() =
     _allRecordPointers ()
 
-  override this.RecordById(recordId: Id) =
+  override this.RecordById(recordId: RecordId) =
     _positionFromId recordId |> Option.map (fun position ->
       use stream    = _recordPointersSource.OpenRead()
       let _       = stream.Seek(position, SeekOrigin.Begin)
@@ -241,7 +241,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
           for recordId in recordIds ->
             trial {
               let! (_: int64) =
-                recordId |> _positionFromId |> failIfNone (Error.InvalidId recordId)
+                recordId |> _positionFromId |> failIfNone (Error.InvalidRecordId recordId)
               return recordId
             }
         |]

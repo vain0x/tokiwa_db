@@ -7,14 +7,14 @@ type StreamHashTableIndex(_fieldIndexes: array<int>, _source: StreamSource) =
 
   let _hashTable =
     let serializer =
-      HashTableElementSerializer<RecordPointer, Id>
+      HashTableElementSerializer<RecordPointer, RecordId>
         ( RecordPointer.serializer _fieldIndexes.LongLength
         , Int64Serializer()
         )
     let rootArray =
       StreamArray(_source, serializer)
     in
-      HashTable<RecordPointer, Id>(RecordPointer.hash, rootArray)
+      HashTable<RecordPointer, RecordId>(RecordPointer.hash, rootArray)
 
   member this.FieldIndexes =
     _fieldIndexes
@@ -22,11 +22,11 @@ type StreamHashTableIndex(_fieldIndexes: array<int>, _source: StreamSource) =
   override this.Projection (recordPointer: RecordPointer) =
     _fieldIndexes |> Array.map (fun i -> recordPointer.[i])
 
-  override this.TryFind(recordPointer: RecordPointer): option<Id> =
+  override this.TryFind(recordPointer: RecordPointer): option<RecordId> =
     _hashTable.TryFind(recordPointer)
 
-  override this.Insert(recordPointer: RecordPointer, id: Id) =
-    _hashTable.Update(recordPointer, id)
+  override this.Insert(recordPointer: RecordPointer, recordId: RecordId) =
+    _hashTable.Update(recordPointer, recordId)
 
   override this.Remove(recordPointer: RecordPointer) =
     _hashTable.Remove(recordPointer)
