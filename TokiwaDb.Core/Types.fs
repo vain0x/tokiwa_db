@@ -8,7 +8,7 @@ open Chessie.ErrorHandling
 [<AutoOpen>]
 module Types =
   /// A pointer to a storage.
-  type pointer = int64
+  type StoragePointer = int64
 
   /// Identity number.
   type Id = int64
@@ -48,7 +48,7 @@ module Types =
   type ValuePointer =
     | PInt           of int64
     | PFloat         of float
-    | PString        of pointer
+    | PString        of StoragePointer
     | PTime          of DateTime
 
   type ValueType =

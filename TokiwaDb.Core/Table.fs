@@ -48,7 +48,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
       _insertedRecordsInTransaction () |> Seq.length |> int64
     in _hardLength + countScheduledInserts
 
-  let _positionFromId (recordId: Id): option<pointer> =
+  let _positionFromId (recordId: Id): option<int64> =
     if 0L <= recordId && recordId < _length ()
     then recordId * _recordLength |> Some
     else None
@@ -240,7 +240,7 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
         [|
           for recordId in recordIds ->
             trial {
-              let! (_: pointer) =
+              let! (_: int64) =
                 recordId |> _positionFromId |> failIfNone (Error.InvalidId recordId)
               return recordId
             }

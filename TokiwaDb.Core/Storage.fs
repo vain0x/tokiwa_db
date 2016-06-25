@@ -32,7 +32,7 @@ type SequentialStorage(_src: StreamSource) =
     let _         = stream.Seek(p, SeekOrigin.Begin)
     in this.ReadData(stream)
     
-  member this.WriteData(data: array<byte>): pointer =
+  member this.WriteData(data: array<byte>): StoragePointer =
     use stream    = _src.OpenAppend()
     let p         = stream.Position
     let length    = 8L + data.LongLength
@@ -49,7 +49,7 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
   let _hash (xs: array<byte>) = xs |> Array.hash
 
   let _hashTableElementSerializer =
-    { new FixedLengthSerializer<HashTableElement<array<byte>, pointer>>() with
+    { new FixedLengthSerializer<HashTableElement<array<byte>, StoragePointer>>() with
         override this.Serialize(element) =
           let p' =
             match element with
@@ -73,12 +73,12 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
 
   let _hashTable =
     let rootArray =
-      StreamArray<HashTableElement<array<byte>, pointer>>
+      StreamArray<HashTableElement<array<byte>, StoragePointer>>
         ( _hashTableSource
         , _hashTableElementSerializer
         )
     in
-      HashTable<array<byte>, pointer>(_hash, rootArray)
+      HashTable<array<byte>, StoragePointer>(_hash, rootArray)
 
   member this.HashTableElementSerializer =
     _hashTableElementSerializer
@@ -86,7 +86,7 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
   member this.TryFindData(data: array<byte>) =
     _hashTable.TryFind(data)
 
-  member this.ReadData(p: pointer) =
+  member this.ReadData(p: StoragePointer) =
     _src.ReadData(p)
 
   member this.WriteData(data) =
@@ -97,7 +97,7 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
       let ()      =  _hashTable.Update(data, p)
       in p
 
-  member this.ReadString(p: pointer) =
+  member this.ReadString(p: StoragePointer) =
     UTF8Encoding.UTF8.GetString(this.ReadData(p))
 
   member this.WriteString(s: string) =
