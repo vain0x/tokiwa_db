@@ -110,12 +110,11 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.Storage =
     _storage :> Storage
 
-  override this.Tables(t) =
-    _tables |> Seq.choose (fun table ->
-      if table |> Mortal.isAliveAt t
-      then Some table
-      else None
-      )
+  override this.Tables =
+    _tables :> seq<Table>
+
+  override this.TableById(tableId) =
+    _tables |> ResizeArray.tryItem (tableId |> int)
 
   override this.CreateTable(schema: TableSchema) =
     _createTable schema
