@@ -4,7 +4,7 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
   let _fields =
@@ -24,7 +24,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
     _db.Transaction.Operations |> Seq.collect (fun operation ->
       seq {
         match operation with
-        | InsertRecords (tableName, records) when tableName = _schema.Name ->
+        | InsertRecords (tableId, records) when tableId = _id ->
           yield! records
         | _ -> ()
       })
@@ -123,8 +123,10 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
       return recordPointers
     }
 
-  new (db, schema, source) =
-    StreamTable(db, schema, [||], source)
+  new (db, tableId, schema, source) =
+    StreamTable(db, tableId, schema, [||], source)
+
+  override this.Id = _id
 
   override this.Schema = _schema
 
@@ -170,7 +172,7 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
             )
           |> Array.unzip
         let () =
-          _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
+          _db.Transaction.Add(InsertRecords (this.Id, recordPointers))
         return recordIds
       })
 
@@ -206,6 +208,6 @@ type StreamTable(_db: Database, _schema: TableSchema, _indexes: array<HashTableI
         |]
         |> Trial.collect
       let () =
-        _db.Transaction.Add(RemoveRecords (this.Name, recordIds |> List.toArray))
+        _db.Transaction.Add(RemoveRecords (this.Id, recordIds |> List.toArray))
       return ()
     }

@@ -104,9 +104,10 @@ module TableTest =
 
   let dropTest =
     test {
-      do! testDb.DropTable("persons") |> assertEquals true
+      do! testDb.DropTable(persons.Id) |> assertEquals true
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
-      do! testDb.DropTable("INVALID NAME") |> assertEquals false
+      do! testDb.DropTable(-1L) |> assertEquals false
+      do! testDb.DropTable(2L) |> assertEquals false
     }
 
   let ``Insert/Remove to table with an index`` =
@@ -160,13 +161,13 @@ module TableTest =
         testDb.CreateTable(schema)
       let operations =
         [|
-          InsertRecords (schema.Name,
+          InsertRecords (songs.Id,
             [|
               [| String "Ura Omote Lovers"; String "wowaka" |]
               [| String "Rollin' Girl"; String "wowaka" |]
             |] |> Array.map (fun rp -> Array.append [| PInt 0L |] (storage.Store(rp)))
             )
-          RemoveRecords (schema.Name, [| 0L |])
+          RemoveRecords (songs.Id, [| 0L |])
         |]
       let () = testDb.Perform(operations)
       // We need to bump up the revision number

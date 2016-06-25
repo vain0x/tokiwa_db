@@ -9,10 +9,10 @@ type [<AbstractClass>] Repository() =
 
   abstract member AddSubrepository: string -> Repository
   abstract member TryFindSubrepository: string -> option<Repository>
+  abstract member AllSubrepositories: unit -> Repository []
 
   abstract member Add: string -> StreamSource
   abstract member TryFind: string -> option<StreamSource>
-  abstract member FindManyBySuffix: string -> seq<string * StreamSource>
 
 type MemoryRepository(_name: string) =
   inherit Repository()
@@ -33,6 +33,10 @@ type MemoryRepository(_name: string) =
   override this.TryFindSubrepository(name) =
     _repositories.TryGetValue(name) |> Option.ofPair
 
+  override this.AllSubrepositories() =
+    _repositories |> Seq.map (fun (KeyValue (_, subrepo)) -> subrepo)
+    |> Seq.toArray
+
   override this.Add(name) =
     let item      = MemoryStreamSource() :> StreamSource
     let _         = _items.Add(name, item)
@@ -40,13 +44,6 @@ type MemoryRepository(_name: string) =
 
   override this.TryFind(name) =
     _items.TryGetValue(name) |> Option.ofPair
-
-  override this.FindManyBySuffix(suffix) =
-    _items |> Seq.choose (fun (KeyValue (name, item)) ->
-      if name.EndsWith(suffix)
-      then Some (name, item)
-      else None
-      )
 
 type FileSystemRepository(_dir: DirectoryInfo) =
   inherit Repository()
@@ -78,6 +75,9 @@ type FileSystemRepository(_dir: DirectoryInfo) =
     |> Array.tryHead
     |> Option.map _subrepo
 
+  override this.AllSubrepositories() =
+    _dir.GetDirectories() |> Array.map _subrepo
+
   override this.Add(name) =
     let subfile     = _subfile name
     let ()          =
@@ -89,11 +89,3 @@ type FileSystemRepository(_dir: DirectoryInfo) =
     _dir.GetFiles(name)
     |> Array.tryHead
     |> Option.map _subitem
-
-  override this.FindManyBySuffix(suffix) =
-    _dir.GetFiles()
-    |> Seq.choose (fun subfile ->
-      if subfile.Name.EndsWith(suffix)
-      then (subfile.Name, subfile |> _subitem) |> Some
-      else None
-      )
