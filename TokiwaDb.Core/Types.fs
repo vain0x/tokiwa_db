@@ -141,9 +141,6 @@ module Types =
     abstract member Remove: array<Id> -> Result<unit, Error>
     abstract member Drop: unit -> unit
 
-    // TODO: remove this
-    abstract member SetSchema: TableSchema -> unit
-
     member this.Name = this.Schema.Name
 
     interface IMortal with
