@@ -11,6 +11,11 @@ module Option =
     | Some x -> x
     | None -> x
 
+  let ofPair =
+    function
+    | (true, x) -> Some x
+    | (false, _) -> None
+
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
 
