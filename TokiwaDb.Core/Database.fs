@@ -22,16 +22,6 @@ module Database =
         this.Transaction.Rollback()
         reraise ()
 
-  let perform (operations: array<Operation>) (this: Database) =
-    for operation in operations do
-      match operation with
-      | InsertRecords (tableName, records) ->
-        this |> tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.PerformInsert(records))
-      | RemoveRecords (tableName, recordIds) ->
-        this |> tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.PerformRemove(recordIds))
-
 type RepositoryDatabaseConfig =
   {
     CurrentRevision: RevisionId
@@ -184,7 +174,14 @@ type RepositoryDatabase(_repo: Repository) as this =
       )
 
   override this.Perform(operations) =
-    this |> Database.perform operations
+    for operation in operations do
+      match operation with
+      | InsertRecords (tableName, records) ->
+        this |> Database.tryFindLivingTable tableName
+        |> Option.iter (fun table -> table.PerformInsert(records))
+      | RemoveRecords (tableName, recordIds) ->
+        this |> Database.tryFindLivingTable tableName
+        |> Option.iter (fun table -> table.PerformRemove(recordIds))
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))
