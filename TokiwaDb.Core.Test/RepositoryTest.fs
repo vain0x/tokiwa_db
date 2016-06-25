@@ -9,20 +9,19 @@ module RepositoryTest =
     [
       test {
         let _ = repo.AddSubrepository("sub")
+        let _ = repo.AddSubrepository("sub2")
         do! repo.TryFindSubrepository("sub")
           |> Option.map (fun sub -> sub.Name)
           |> assertEquals (Some "sub")
+        do! repo.AllSubrepositories()
+          |> Array.map (fun repo -> repo.Name)
+          |> assertEquals [|"sub"; "sub2"|]
       }
       test {
         let _ = repo.Add("x0.x")
-        let _ = repo.Add("x1.x")
         let _ = repo.Add("y0.y")
         do! repo.TryFind("x0.x") |> assertSatisfies Option.isSome
         do! repo.TryFind("____") |> assertEquals None
-        do! repo.FindManyBySuffix(".x")
-          |> Seq.map fst
-          |> Seq.toArray
-          |> assertEquals [|"x0.x"; "x1.x"|]
       }
     ]
 

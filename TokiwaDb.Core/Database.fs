@@ -64,35 +64,29 @@ type RepositoryDatabase(_repo: Repository) as this =
       }
     in _configSource.WriteString(config |> Yaml.dump)
 
-  let _loadIndexes (schema: TableSchema) =
+  let _loadIndexes (repo: Repository) (schema: TableSchema) =
     schema.Indexes |> Array.mapi (fun i indexSchema ->
       match indexSchema with
       | HashTableIndexSchema fieldIndexes ->
-        _tableRepo.TryFind(sprintf "%s.%d.ht_index" schema.Name i)
-        |> Option.map (fun source ->
+        repo.TryFind(sprintf "%d.ht_index" i)
+        |> Option.get
+        |> (fun source ->
           StreamHashTableIndex(fieldIndexes, source) :> HashTableIndex
           ))
-    |> Array.choose id
 
-  let _tryLoadTable (schemaName: string, schemaSource: StreamSource) =
-    let name            = Path.GetFileNameWithoutExtension(schemaName)
-    in
-      schemaSource.ReadString()
-      |> Yaml.tryLoad<Mortal<TableSchema>>
-      |> Option.bind (fun mortalSchema ->
-        _tableRepo.TryFind(name + ".table")
-        |> Option.map (fun tableSource ->
-            let schema      = mortalSchema.Value
-            let indexes     = _loadIndexes schema
-            let table       = StreamTable(this, schema, indexes, tableSource) :> Table
-            in mortalSchema |> Mortal.map (fun _ -> table)
-            ))
+  let _loadTable (repo: Repository) =
+    let schemaSource    = repo.TryFind(".schema") |> Option.get
+    let mortalSchema    = schemaSource.ReadString() |> Yaml.load<Mortal<TableSchema>>
+    let schema          = mortalSchema.Value
+    let indexes         = _loadIndexes repo schema
+    let tableSource     = repo.TryFind(".table") |> Option.get
+    let table           = StreamTable(this, schema, indexes, tableSource) :> Table
+    let mortalTable     = mortalSchema |> Mortal.map (fun _ -> table)
+    in (repo.Name, mortalTable)
 
   let mutable _tables: Map<string, Mortal<Table>> =
-    _tableRepo.FindManyBySuffix(".schema")
-    |> Seq.choose _tryLoadTable
-    |> Seq.map (fun mortalTable ->
-      (mortalTable.Value.Name, mortalTable))
+    _tableRepo.AllSubrepositories()
+    |> Seq.map _loadTable
     |> Map.ofSeq
 
   let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> Transaction
@@ -132,20 +126,21 @@ type RepositoryDatabase(_repo: Repository) as this =
         failwithf "Table name '%s' has been already taken." name
       else
         let revisionId      = _revisionServer.Increase()
+        let repo            = _tableRepo.AddSubrepository(name)
         /// Create schema file.
         let mortalSchema    = schema |> Mortal.create revisionId
-        let schemaSource    = _tableRepo.Add(name + ".schema")
+        let schemaSource    = repo.Add(".schema")
         let ()              = schemaSource.WriteString(mortalSchema |> Yaml.dump)
         /// Create index files.
         let indexes         =
           schema.Indexes |> Array.mapi (fun i indexSchema ->
             match indexSchema with
             | HashTableIndexSchema fieldIndexes ->
-              let indexSource   = _tableRepo.Add(sprintf "%s.%d.ht_index" name i)
+              let indexSource   = repo.Add(sprintf "%d.ht_index" i)
               in StreamHashTableIndex(fieldIndexes, indexSource) :> HashTableIndex
             )
         /// Create table file.
-        let tableSource     = _tableRepo.Add(name + ".table")
+        let tableSource     = repo.Add(".table")
         let table           = StreamTable(this, schema, indexes, tableSource) :> Table
         /// Add table.
         _tables <- _tables |> Map.add table.Name (mortalSchema |> Mortal.map (fun _ -> table))
@@ -161,7 +156,10 @@ type RepositoryDatabase(_repo: Repository) as this =
         /// Kill schema.
         let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
         let ()              =
-          _tableRepo.TryFind(name + ".schema")
+          _tableRepo.TryFindSubrepository(name)
+          |> Option.bind (fun repo ->
+            repo.TryFind(".schema")
+            )
           |> Option.iter (fun schemaSource ->
             schemaSource.WriteString(mortalSchema |> Yaml.dump)
             )

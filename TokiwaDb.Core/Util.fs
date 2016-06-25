@@ -44,6 +44,10 @@ module Array =
     then None
     else Some xs.[0]
 
+module Map =
+  let length (map: Map<_, _>) =
+    map |> Seq.length
+
 module Seq =
   let equalAll xs =
     if xs |> Seq.isEmpty
