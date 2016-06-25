@@ -61,31 +61,12 @@ type RepositoryDatabase(_repo: Repository) as this =
       }
     in _configSource.WriteString(config |> Yaml.dump)
 
-  let _loadIndexes (repo: Repository) (schema: TableSchema) =
-    schema.Indexes |> Array.mapi (fun i indexSchema ->
-      match indexSchema with
-      | HashTableIndexSchema fieldIndexes ->
-        repo.TryFind(sprintf "%d.ht_index" i)
-        |> Option.get
-        |> (fun source ->
-          StreamHashTableIndex(fieldIndexes, source) :> HashTableIndex
-          ))
-
-  let _loadTable (repo: Repository) =
-    let tableId         = Int64.Parse(repo.Name)
-    let schemaSource    = repo.TryFind(".schema") |> Option.get
-    let mortalSchema    = schemaSource.ReadString() |> Yaml.load<Mortal<TableSchema>>
-    let schema          = mortalSchema.Value
-    let indexes         = _loadIndexes repo schema
-    let tableSource     = repo.TryFind(".table") |> Option.get
-    let table           = StreamTable(this, tableId, schema, indexes, tableSource) :> Table
-    let mortalTable     = mortalSchema |> Mortal.map (fun _ -> table)
-    in mortalTable
-
-  let _tables: ResizeArray<Mortal<Table>> =
+  let _tables: ResizeArray<Table> =
     _tableRepo.AllSubrepositories()
-    |> Seq.map _loadTable
-    |> ResizeArray
+    |> Seq.map (fun repo ->
+      RepositoryTable(this, repo.Name |> int64, repo) :> Table
+      )
+    |> ResizeArray.ofSeq
 
   let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> Transaction
 
@@ -107,65 +88,40 @@ type RepositoryDatabase(_repo: Repository) as this =
     _storage :> Storage
 
   override this.Tables(t) =
-    _tables |> Seq.choose (Mortal.valueIfAliveAt t)
+    _tables |> Seq.choose (fun table ->
+      if table |> Mortal.isAliveAt t
+      then Some table
+      else None
+      )
 
   override this.CreateTable(schema: TableSchema) =
     lock this.Transaction.SyncRoot (fun () ->
       let tableId         = _tables.Count |> int64
       let revisionId      = _revisionServer.Increase()
       let repo            = _tableRepo.AddSubrepository(string tableId)
-      /// Create schema file.
-      let mortalSchema    = schema |> Mortal.create revisionId
-      let schemaSource    = repo.Add(".schema")
-      let ()              = schemaSource.WriteString(mortalSchema |> Yaml.dump)
-      /// Create index files.
-      let indexes         =
-        schema.Indexes |> Array.mapi (fun i indexSchema ->
-          match indexSchema with
-          | HashTableIndexSchema fieldIndexes ->
-            let indexSource   = repo.Add(sprintf "%d.ht_index" i)
-            in StreamHashTableIndex(fieldIndexes, indexSource) :> HashTableIndex
-          )
-      /// Create table file.
-      let tableSource     = repo.Add(".table")
-      let table           = StreamTable(this, tableId, schema, indexes, tableSource) :> Table
-      let mortalTable     = mortalSchema |> Mortal.map (fun _ -> table)
+      let table           = RepositoryTable.Create(this, tableId, repo, schema, revisionId) :> Table
       /// Add table.
-      _tables.Add(mortalTable)
+      _tables.Add(table)
       /// Return the new table.
       table
       )
 
   override this.DropTable(tableId) =
-    lock this.Transaction.SyncRoot (fun () ->
-      if 0L <= tableId && tableId < (_tables.Count |> int64) then
-        let table           = _tables.[int tableId]
-        let revisionId      = _revisionServer.Increase()
-        /// Kill schema.
-        let mortalSchema    = table |> Mortal.map (fun table -> table.Schema) |> Mortal.kill revisionId
-        let ()              =
-          _tableRepo.TryFindSubrepository(string tableId)
-          |> Option.bind (fun repo ->
-            repo.TryFind(".schema")
-            )
-          |> Option.iter (fun schemaSource ->
-            schemaSource.WriteString(mortalSchema |> Yaml.dump)
-            )
-        /// Kill table.
-        _tables.[int tableId] <- (table |> Mortal.kill revisionId)
-        /// Return true, which indicates some table is dropped.
-        true
-      else
-        false
-      )
+    if 0L <= tableId && tableId < (_tables.Count |> int64) then
+      let table           = _tables.[int tableId]
+      let ()              = table.Drop()
+      /// Return true, which indicates some table is dropped.
+      true
+    else
+      false
 
   override this.Perform(operations) =
     for operation in operations do
       match operation with
       | InsertRecords (tableId, records) ->
-        _tables.[int tableId].Value.PerformInsert(records)
+        _tables.[int tableId].PerformInsert(records)
       | RemoveRecords (tableId, recordIds) ->
-        _tables.[int tableId].Value.PerformRemove(recordIds)
+        _tables.[int tableId].PerformRemove(recordIds)
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))

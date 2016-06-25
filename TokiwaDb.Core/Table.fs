@@ -4,14 +4,28 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
+type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
   inherit Table()
+
+  let mutable _schema =
+    (_repo.TryFind(".schema") |> Option.get).ReadString()
+    |> FsYaml.customLoad<TableSchema>
+
+  let _indexes =
+    _schema.Indexes |> Array.mapi (fun i indexSchema ->
+      match indexSchema with
+      | HashTableIndexSchema fieldIndexes ->
+        _repo.TryFind(sprintf "%d.ht_index" i)
+        |> Option.get
+        |> (fun source ->
+          StreamHashTableIndex(fieldIndexes, source) :> HashTableIndex
+          ))
+
+  let _recordPointersSource =
+    _repo.TryFind(".table") |> Option.get
 
   let _fields =
     _schema |> TableSchema.toFields
-
-  let mutable _indexes =
-    _indexes
 
   let _recordLength =
     // Count of fields + begin/end revision ids - record id.
@@ -123,8 +137,29 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
       return recordPointers
     }
 
-  new (db, tableId, schema, source) =
-    StreamTable(db, tableId, schema, [||], source)
+  static member Create
+    ( db: Database
+    , tableId: Id
+    , repo: Repository
+    , schema: TableSchema
+    , revisionId: RevisionId
+    ) =
+    // Get born.
+    let schema          = { schema with LifeSpan = schema.LifeSpan |> Mortal.isBorn revisionId }
+    /// Create schema file.
+    let schemaSource    = repo.Add(".schema")
+    let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)
+    /// Create index files.
+    let indexes         =
+      schema.Indexes |> Array.mapi (fun i indexSchema ->
+        match indexSchema with
+        | HashTableIndexSchema fieldIndexes ->
+          let indexSource   = repo.Add(sprintf "%d.ht_index" i)
+          in StreamHashTableIndex(fieldIndexes, indexSource) :> HashTableIndex
+        )
+    /// Create table file.
+    let tableSource     = repo.Add(".table")
+    RepositoryTable(db, tableId, repo)
 
   override this.Id = _id
 
@@ -161,6 +196,8 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
   override this.Insert(records: array<Record>) =
     lock _db.Transaction.SyncRoot (fun () ->
       trial {
+        if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
+          do! fail <| Error.TableAlreadyDroped this.Id
         let! recordPointers = _validateInsertedRecords records
         let length = _length ()
         let (recordIds, recordPointers) =
@@ -197,6 +234,8 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
 
   override this.Remove(recordIds) =
     trial {
+      if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
+        do! fail <| Error.TableAlreadyDroped this.Id
       let! recordIds =
         [|
           for recordId in recordIds ->
@@ -213,4 +252,12 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
     }
 
   override this.Drop() =
-    _db.DropTable(this.Id) |> ignore
+    lock _db.Transaction.SyncRoot (fun () ->
+      let revisionId      = _db.Transaction.RevisionServer.Increase()
+      let ()              =
+        _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
+      let ()              =
+        (_repo.TryFind(".schema") |> Option.get)
+          .WriteString(_schema |> FsYaml.customDump)
+      in ()
+      )

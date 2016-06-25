@@ -108,17 +108,23 @@ module TableTest =
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
       do! testDb.DropTable(-1L) |> assertEquals false
       do! testDb.DropTable(2L) |> assertEquals false
+      // Try to insert into/remove from dropped table should cause an error.
+      let assertCausesTableAlreadyDroppedError result =
+        result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)
+      do! persons.Insert([| [| String "Len"; Int 14L |] |])
+        |> assertCausesTableAlreadyDroppedError
+      do! persons.Remove([| 0L |])
+        |> assertCausesTableAlreadyDroppedError
     }
 
   let ``Insert/Remove to table with an index`` =
     test {
       let schema =
-        {
-          Name = "persons2"
-          Fields =
-            [| Field.string "name"; Field.int "age" |]
-          Indexes =
-            [| HashTableIndexSchema [| 1 |] |]
+        { TableSchema.empty "persons2" with
+            Fields =
+              [| Field.string "name"; Field.int "age" |]
+            Indexes =
+              [| HashTableIndexSchema [| 1 |] |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
