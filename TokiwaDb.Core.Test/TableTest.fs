@@ -54,21 +54,19 @@ module TableTest =
   let insertFailureTest =
     test {
       // Wrong count of fields.
-      let actual =
+      do!
         persons.Insert([| [||] |])
-        |> (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
-      do! actual |> assertPred
+        |> assertSatisfies (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
       // Type mismatch.
       do!
         persons.Insert([| [| String "Iroha"; String "AGE" |] |])
-        |> (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
-        |> assertPred
+        |> assertSatisfies (function | Fail [Error.WrongRecordType _] -> true | _ -> false)
     }
 
   let recordByIdTest =
     test {
-      let actual = persons.RecordById(0L)
-      do! actual |> Option.isSome |> assertPred
+      do! persons.RecordById(0L)
+        |> assertSatisfies Option.isSome
     }
 
   let toSeqTest =
@@ -100,8 +98,8 @@ module TableTest =
         function
         | Fail ([Error.InvalidId _]) -> true
         | _ -> false
-      do! persons.Remove([| -1L |]) |> containsInvalidId |> assertPred
-      do! persons.Remove([| 9L |]) |> containsInvalidId |> assertPred
+      do! persons.Remove([| -1L |]) |> assertSatisfies containsInvalidId
+      do! persons.Remove([| 9L |]) |> assertSatisfies containsInvalidId
     }
 
   let dropTest =
@@ -149,8 +147,7 @@ module TableTest =
             [| String "Len"; Int 14L |]
             [| String "Len"; Int 15L |]
           |])
-        |> (function | Fail [Error.DuplicatedRecord _] -> true | _ -> false)
-        |> assertPred
+        |> assertSatisfies (function | Fail [Error.DuplicatedRecord _] -> true | _ -> false)
     }
 
   let performTest =
@@ -202,12 +199,12 @@ module TableTest =
       let () = transaction.Begin()
       let _ =
         items.Remove([|0L|])
-      let removeHasNotBeenPerformed () =
-        items.ToSeq() |> Seq.head |> Mortal.isAliveAt rev.Current
-      do! removeHasNotBeenPerformed () |> assertPred
+      let assertThatRemoveHasNotBeenPerformed () =
+        items.ToSeq() |> Seq.head |> assertSatisfies (Mortal.isAliveAt rev.Current)
+      do! assertThatRemoveHasNotBeenPerformed ()
       let () =
         transaction.Rollback()
-      do! removeHasNotBeenPerformed () |> assertPred
+      do! assertThatRemoveHasNotBeenPerformed ()
 
       // Nested transaction.
       let () = transaction.Begin()
@@ -221,7 +218,7 @@ module TableTest =
         transaction.Rollback()
       let () =
         transaction.Commit()
-      do! removeHasNotBeenPerformed () |> assertPred
+      do! assertThatRemoveHasNotBeenPerformed ()
       do! items.ToSeq() |> Seq.length |> assertEquals 3
 
       // Inserting a duplicated record should return an error.
@@ -230,8 +227,7 @@ module TableTest =
         |> Trial.returnOrFail
         |> assertEquals [| 3L |]
       do! items.Insert([| [| String "Len"; String "Headphones" |] |])
-        |> (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
-        |> assertPred
+        |> assertSatisfies (function | Fail ([Error.DuplicatedRecord _]) -> true | _ -> false)
       // Insert should return the actual record IDs of inserted records.
       do! items.Insert([| [| String "Rin"; String "Oranges" |] |])
         |> Trial.returnOrFail
