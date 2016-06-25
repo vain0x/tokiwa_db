@@ -24,8 +24,8 @@ module Types =
 
   type Mortal<'x> =
     {
-      Begin: RevisionId
-      End: RevisionId
+      Birth: RevisionId
+      Death: RevisionId
       Value: 'x
     }
 

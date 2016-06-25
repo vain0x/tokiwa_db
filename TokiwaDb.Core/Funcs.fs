@@ -105,13 +105,13 @@ module Mortal =
 
   let create t value =
     {
-      Begin     = t
-      End       = maxLifeSpan
+      Birth     = t
+      Death     = maxLifeSpan
       Value     = value
     }
 
   let isAliveAt t (mortal: Mortal<_>) =
-    mortal.Begin <= t && t < mortal.End
+    mortal.Birth <= t && t < mortal.Death
 
   let valueIfAliveAt t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
@@ -120,30 +120,30 @@ module Mortal =
 
   let kill t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
-    then { mortal with End = t }
+    then { mortal with Death = t }
     else mortal
 
   let map (f: 'x -> 'y) (m: Mortal<'x>): Mortal<'y> =
     {
-      Begin     = m.Begin
-      End       = m.End
+      Birth     = m.Birth
+      Death     = m.Death
       Value     = f m.Value
     }
 
   let readFromStream readValue (stream: Stream) =
-    let beginRevision   = stream |> Stream.readInt64
-    let endRevision     = stream |> Stream.readInt64
+    let birthRevision   = stream |> Stream.readInt64
+    let deathRevision   = stream |> Stream.readInt64
     let value           = stream |> readValue
     in
       {
-        Begin     = beginRevision
-        End       = endRevision
+        Birth     = birthRevision
+        Death     = deathRevision
         Value     = value
       }
 
   let writeToStream writeValue (stream: Stream) (this: Mortal<_>) =
-    stream |> Stream.writeInt64 this.Begin
-    stream |> Stream.writeInt64 this.End
+    stream |> Stream.writeInt64 this.Birth
+    stream |> Stream.writeInt64 this.Death
     stream |> writeValue this.Value
     
   /// Set to `t` the end of lifespan of the mortal value written at the current position.
