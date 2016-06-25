@@ -94,8 +94,8 @@ module Types =
     | InvalidId           of Id
 
   type Operation =
-    | InsertRecords       of Name * array<RecordPointer>
-    | RemoveRecords       of Name * array<Id>
+    | InsertRecords       of tableId: Id * array<RecordPointer>
+    | RemoveRecords       of tableId: Id * array<Id>
 
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int

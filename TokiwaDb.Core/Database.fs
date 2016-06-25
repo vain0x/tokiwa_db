@@ -169,12 +169,10 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.Perform(operations) =
     for operation in operations do
       match operation with
-      | InsertRecords (tableName, records) ->
-        this |> Database.tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.PerformInsert(records))
-      | RemoveRecords (tableName, recordIds) ->
-        this |> Database.tryFindLivingTable tableName
-        |> Option.iter (fun table -> table.PerformRemove(recordIds))
+      | InsertRecords (tableId, records) ->
+        _tables.[int tableId].Value.PerformInsert(records)
+      | RemoveRecords (tableId, recordIds) ->
+        _tables.[int tableId].Value.PerformRemove(recordIds)
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))

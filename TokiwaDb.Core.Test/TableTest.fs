@@ -161,13 +161,13 @@ module TableTest =
         testDb.CreateTable(schema)
       let operations =
         [|
-          InsertRecords (schema.Name,
+          InsertRecords (songs.Id,
             [|
               [| String "Ura Omote Lovers"; String "wowaka" |]
               [| String "Rollin' Girl"; String "wowaka" |]
             |] |> Array.map (fun rp -> Array.append [| PInt 0L |] (storage.Store(rp)))
             )
-          RemoveRecords (schema.Name, [| 0L |])
+          RemoveRecords (songs.Id, [| 0L |])
         |]
       let () = testDb.Perform(operations)
       // We need to bump up the revision number

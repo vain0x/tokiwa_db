@@ -24,7 +24,7 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
     _db.Transaction.Operations |> Seq.collect (fun operation ->
       seq {
         match operation with
-        | InsertRecords (tableName, records) when tableName = _schema.Name ->
+        | InsertRecords (tableId, records) when tableId = _id ->
           yield! records
         | _ -> ()
       })
@@ -172,7 +172,7 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
             )
           |> Array.unzip
         let () =
-          _db.Transaction.Add(InsertRecords (this.Name, recordPointers))
+          _db.Transaction.Add(InsertRecords (this.Id, recordPointers))
         return recordIds
       })
 
@@ -208,6 +208,6 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
         |]
         |> Trial.collect
       let () =
-        _db.Transaction.Add(RemoveRecords (this.Name, recordIds |> List.toArray))
+        _db.Transaction.Add(RemoveRecords (this.Id, recordIds |> List.toArray))
       return ()
     }
