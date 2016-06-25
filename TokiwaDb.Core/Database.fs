@@ -101,7 +101,7 @@ type MemoryDatabase(_name: string, _rev: RevisionServer, _storage: Storage, _tab
   override this.Perform(operations) =
     this |> Database.perform operations
 
-type FileDatabaseConfig =
+type RepositoryDatabaseConfig =
   {
     CurrentRevision: RevisionId
   }
@@ -126,7 +126,7 @@ type RepositoryDatabase(_repo: Repository) as this =
 
   let _config =
     _configSource.ReadString()
-    |> Yaml.tryLoad<FileDatabaseConfig>
+    |> Yaml.tryLoad<RepositoryDatabaseConfig>
 
   let _revisionServer =
     let currentRevision =
