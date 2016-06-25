@@ -31,7 +31,7 @@ type HashTable<'k, 'v when 'k: equality>
   let rec _rehash () =
     let capacity'   = _capacity * 2L + 7L
     let elements    =
-      _array |> IResizeArray.toSeq
+      _array
       |> Seq.choose (function | Busy (k, v, h) -> Some (k, v) | _ -> None)
       |> Seq.toArray
     // TODO: Create a temporary file and rebuild this hash table in it then swap by renaming.
@@ -111,7 +111,7 @@ type HashTable<'k, 'v when 'k: equality>
       assert (_array.Length = _capacity)
     else
       _countBusy <- 
-        _array |> IResizeArray.toSeq
+        _array
         |> Seq.map (function Busy _ -> 1L | _ -> 0L)
         |> Seq.sum
 

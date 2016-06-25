@@ -1,19 +1,17 @@
 ﻿namespace TokiwaDb.Core
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.IO
 
 type IResizeArray<'x> =
+  inherit IEnumerable<'x>
+
   abstract member Length: int64
   abstract member Get: int64 -> 'x
   abstract member Set: int64 * 'x -> unit
   abstract member Initialize: int64 * 'x -> unit
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module IResizeArray =
-  let toSeq (xs: IResizeArray<'x>): seq<'x> =
-    seq { for i in 0L..(xs.Length - 1L) -> xs.Get(i) }
 
 /// A stream source as an array of elements which can be serialized in fixed length.
 type StreamArray<'x>
@@ -42,6 +40,17 @@ type StreamArray<'x>
     else
       raise (ArgumentException())
 
+  let _toSeq () =
+    seq {
+      let buffer      = Array.zeroCreate (int _serializer.Length)
+      let length      = _length ()
+      let stream      = _source.OpenRead()
+      for i in 0L..(length - 1L) do
+        let _     = stream.Read(buffer, 0, buffer.Length)
+        yield _serializer.Deserialize(buffer)
+      do stream.Dispose()
+    }
+
   let _set i x =
     if 0L <= i && i < _length () then
       let data      = _serializer.Serialize(x)
@@ -63,3 +72,9 @@ type StreamArray<'x>
 
     override this.Set(i: int64, x: 'x) =
       _set i x
+
+    override this.GetEnumerator() =
+      (_toSeq () :> seq<'x>).GetEnumerator()
+
+    override this.GetEnumerator() =
+      (_toSeq() :> IEnumerable).GetEnumerator()

@@ -24,10 +24,18 @@ module StreamArrayTest =
       do! xs.Get(2L) |> assertEquals "test"
     }
 
+  let toSeqTest (xs: IResizeArray<string>) =
+    test {
+      let ()      = xs.Set(0L, "0th.")
+      let ()      = xs.Set(1L, "1st.")
+      do! (xs |> Seq.toList) |> assertEquals [ "0th."; "1st." ]
+    }
+
   let arrayTest xs =
     test {
       do! initializeTest (xs ())
       do! setGetTest (xs ())
+      do! toSeqTest (xs ())
     }
 
   let memoryStreamArrayTest =
