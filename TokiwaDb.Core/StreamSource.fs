@@ -8,6 +8,7 @@ type [<AbstractClass>] StreamSource() =
   abstract member OpenRead: unit -> Stream
   abstract member OpenAppend: unit -> Stream
   abstract member Clear: unit -> unit
+  abstract member WriteAll: (StreamSource -> unit) -> unit
   abstract member Length: int64
 
   member this.ReadString() =
@@ -41,6 +42,12 @@ type FileStreamSource(_file: FileInfo) =
     if _file |> FileInfo.exists then
       _file.Delete()
 
+  override this.WriteAll(writeTo) =
+    let temporaryFile   = FileInfo(Path.GetTempFileName())
+    FileStreamSource(temporaryFile) |> writeTo
+    this.Clear()
+    temporaryFile.MoveTo(_file.FullName)
+
   override this.Length =
     _file |> FileInfo.length
 
@@ -62,6 +69,9 @@ type MemoryStreamSource(_buffer: array<byte>) =
 
   new() = new MemoryStreamSource([||])
 
+  member private this.GetBuffer() =
+    _buffer
+
   override this.OpenReadWrite() =
     _open 0L :> Stream
 
@@ -73,6 +83,12 @@ type MemoryStreamSource(_buffer: array<byte>) =
 
   override this.Clear() =
     _buffer <- [||]
+
+  override this.WriteAll(writeTo) =
+    let temporarySource   = MemoryStreamSource ()
+    let ()                = temporarySource |> writeTo
+    let ()                = _buffer <- temporarySource.GetBuffer()
+    in ()
 
   override this.Length =
     _buffer.LongLength

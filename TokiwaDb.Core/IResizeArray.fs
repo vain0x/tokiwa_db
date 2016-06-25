@@ -12,6 +12,7 @@ type IResizeArray<'x> =
   abstract member Get: int64 -> 'x
   abstract member Set: int64 * 'x -> unit
   abstract member Initialize: int64 * 'x -> unit
+  abstract member SetAll: (IResizeArray<'x> -> unit) -> unit
 
 /// A stream source as an array of elements which can be serialized in fixed length.
 type StreamArray<'x>
@@ -22,13 +23,14 @@ type StreamArray<'x>
     _source.Length / _serializer.Length
 
   let _initialize length x =
-    let data      = _serializer.Serialize(x)
-    let ()        = _source.Clear()
-    use stream    = _source.OpenReadWrite()
-    let ()        =
-      for i in 0L..(length - 1L) do
-        stream.Write(data, 0, data.Length)
-    in ()
+    let data        = _serializer.Serialize(x)
+    let writeTo (source: StreamSource) =
+      use stream    = source.OpenReadWrite()
+      in
+        for i in 0L..(length - 1L) do
+          stream.Write(data, 0, data.Length)
+    in
+      _source.WriteAll(writeTo)
 
   let _get i =
     if 0L <= i && i < _length () then
@@ -60,6 +62,12 @@ type StreamArray<'x>
     else
       raise (ArgumentException())
 
+  let _setAll initializer =
+    let write source =
+      StreamArray(source, _serializer) |> initializer
+    in
+      _source.WriteAll(write)
+
   interface IResizeArray<'x> with
     override this.Length =
       _length ()
@@ -72,6 +80,9 @@ type StreamArray<'x>
 
     override this.Set(i: int64, x: 'x) =
       _set i x
+
+    override this.SetAll(initializer) =
+      _setAll initializer
 
     override this.GetEnumerator() =
       (_toSeq () :> seq<'x>).GetEnumerator()
