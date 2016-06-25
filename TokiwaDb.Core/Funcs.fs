@@ -16,13 +16,18 @@ module Mortal =
       Value     = value
     }
 
-  let isAliveAt t (mortal: Mortal<_>) =
+  let isAliveAt t (mortal: IMortal) =
     mortal.Birth <= t && t < mortal.Death
 
   let valueIfAliveAt t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
     then mortal.Value |> Some
     else None
+
+  let isBorn t (mortal: Mortal<_>) =
+    if mortal.Birth = maxLifeSpan
+    then { mortal with Birth = t }
+    else mortal
 
   let kill t (mortal: Mortal<_>) =
     if mortal |> isAliveAt t
@@ -148,6 +153,12 @@ module TableSchema =
       Name              = name
       Fields            = [||]
       Indexes           = [||]
+      LifeSpan          =
+        {
+          Birth         = Mortal.maxLifeSpan
+          Death         = Mortal.maxLifeSpan
+          Value         = ()
+        }
     }
 
   let toFields (schema: TableSchema) =

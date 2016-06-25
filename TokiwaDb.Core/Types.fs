@@ -22,12 +22,20 @@ module Types =
     abstract member Next: RevisionId
     abstract member Increase: unit -> RevisionId
 
+  type IMortal =
+    abstract member Birth: RevisionId
+    abstract member Death: RevisionId
+
   type Mortal<'x> =
     {
       Birth: RevisionId
       Death: RevisionId
       Value: 'x
     }
+  with
+    interface IMortal with
+      override this.Birth = this.Birth
+      override this.Death = this.Death
 
   type Name = string
 
@@ -61,6 +69,7 @@ module Types =
       /// Except for id field.
       Fields        : array<Field>
       Indexes       : array<IndexSchema>
+      LifeSpan      : Mortal<unit>
     }
 
   type Record =
@@ -132,7 +141,14 @@ module Types =
     abstract member Remove: array<Id> -> Result<unit, Error>
     abstract member Drop: unit -> unit
 
+    // TODO: remove this
+    abstract member SetSchema: TableSchema -> unit
+
     member this.Name = this.Schema.Name
+
+    interface IMortal with
+      override this.Birth = this.Schema.LifeSpan.Birth
+      override this.Death = this.Schema.LifeSpan.Death
 
   and [<AbstractClass>] Database() =
     abstract member Name: string

@@ -7,6 +7,8 @@ open Chessie.ErrorHandling
 type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<HashTableIndex>, _recordPointersSource: StreamSource) =
   inherit Table()
 
+  let mutable _schema = _schema
+
   let _fields =
     _schema |> TableSchema.toFields
 
@@ -214,3 +216,6 @@ type StreamTable(_db: Database, _id: Id, _schema: TableSchema, _indexes: array<H
 
   override this.Drop() =
     _db.DropTable(this.Id) |> ignore
+
+  override this.SetSchema(schema) =
+    _schema <- schema

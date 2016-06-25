@@ -113,12 +113,11 @@ module TableTest =
   let ``Insert/Remove to table with an index`` =
     test {
       let schema =
-        {
-          Name = "persons2"
-          Fields =
-            [| Field.string "name"; Field.int "age" |]
-          Indexes =
-            [| HashTableIndexSchema [| 1 |] |]
+        { TableSchema.empty "persons2" with
+            Fields =
+              [| Field.string "name"; Field.int "age" |]
+            Indexes =
+              [| HashTableIndexSchema [| 1 |] |]
         }
       // Create a table with index in "name" column.
       // NOTE: The first column (with index 0) is "id".
