@@ -29,6 +29,12 @@ module TableTest =
     in
       testDb.CreateTable(schema)
 
+  let databaseTryFindTest =
+    test {
+      do! testDb.TableById(0L) |> assertSatisfies Option.isSome
+      do! testDb.TableById(1L) |> assertSatisfies Option.isNone
+    }
+
   let insertTest =
     test {
       do! persons.Insert(testData |> List.toArray)

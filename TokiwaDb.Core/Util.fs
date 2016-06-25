@@ -48,6 +48,11 @@ module ResizeArray =
   let ofSeq (xs: seq<'x>): ResizeArray<'x> =
     ResizeArray(xs)
 
+  let tryItem i (xs: ResizeArray<'x>) =
+    if 0 <= i && i < xs.Count
+    then xs.[i] |> Some
+    else None
+
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length

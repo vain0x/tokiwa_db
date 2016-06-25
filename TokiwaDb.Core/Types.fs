@@ -155,6 +155,7 @@ module Types =
     abstract member Storage: Storage
 
     abstract member Tables: seq<Table>
+    abstract member TableById: TableId -> option<Table>
 
     abstract member CreateTable: TableSchema -> Table
     abstract member Perform: array<Operation> -> unit
