@@ -115,6 +115,7 @@
     <Compile Include="HashTable.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Funcs.fs" />
+    <Compile Include="Mortal.fs" />
     <Compile Include="Storage.fs" />
     <Compile Include="Relation.fs" />
     <Compile Include="HashTableIndex.fs" />
