@@ -125,3 +125,6 @@ type RepositoryDatabase(_repo: Repository) as this =
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))
+
+type DirectoryDatabase(_dir: DirectoryInfo) =
+  inherit RepositoryDatabase(FileSystemRepository(_dir))
