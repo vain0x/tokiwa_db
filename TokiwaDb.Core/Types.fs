@@ -98,6 +98,7 @@ module Types =
 
   [<RequireQualifiedAccess>]
   type Error =
+    | TableAlreadyDroped  of Id
     | WrongRecordType     of array<Field> * Record
     | DuplicatedRecord    of RecordPointer
     | InvalidId           of Id

@@ -196,6 +196,8 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
   override this.Insert(records: array<Record>) =
     lock _db.Transaction.SyncRoot (fun () ->
       trial {
+        if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
+          do! fail <| Error.TableAlreadyDroped this.Id
         let! recordPointers = _validateInsertedRecords records
         let length = _length ()
         let (recordIds, recordPointers) =
@@ -232,6 +234,8 @@ type RepositoryTable(_db: Database, _id: Id, _repo: Repository) =
 
   override this.Remove(recordIds) =
     trial {
+      if this |> Mortal.isAliveAt _db.CurrentRevisionId |> not then
+        do! fail <| Error.TableAlreadyDroped this.Id
       let! recordIds =
         [|
           for recordId in recordIds ->
