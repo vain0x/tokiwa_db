@@ -104,7 +104,7 @@ module TableTest =
 
   let dropTest =
     test {
-      do! testDb.DropTable(persons.Id) |> assertEquals true
+      let () = persons.Drop()
       do! testDb.Tables(rev.Current) |> Seq.exists (fun table -> table.Name = "persons") |> assertEquals false
       do! testDb.DropTable(-1L) |> assertEquals false
       do! testDb.DropTable(2L) |> assertEquals false
