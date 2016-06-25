@@ -15,7 +15,7 @@ module StorageExtensions =
     member this.Store(record: Record): RecordPointer =
       record |> Array.map (fun value -> this.Store(value))
 
-type SequentialStorage(_src: StreamSource) =
+type SequentialStorage(_source: StreamSource) =
   let _readData stream =
     let len       = stream |> Stream.readInt64
     // TODO: Support "long" array.
@@ -26,12 +26,12 @@ type SequentialStorage(_src: StreamSource) =
     in data
 
   let _readDataAt p =
-    use stream    = _src.OpenRead()
+    use stream    = _source.OpenRead()
     let _         = stream.Seek(p, SeekOrigin.Begin)
     in _readData stream
 
   let _writeData (data: array<byte>) =
-    use stream    = _src.OpenAppend()
+    use stream    = _source.OpenAppend()
     let p         = stream.Position
     let length    = 8L + data.LongLength
     let ()        = stream |> Stream.writeInt64 data.LongLength
@@ -50,10 +50,10 @@ type SequentialStorage(_src: StreamSource) =
     _writeData data
 
 /// A storage which stores values in stream.
-type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
+type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) =
   inherit Storage()
 
-  let _src = SequentialStorage(_src)
+  let _source = SequentialStorage(_source)
 
   let _hash (xs: array<byte>) = xs |> Array.hash
 
@@ -73,7 +73,7 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
           | -2L -> Removed
           | p when p >= 0L -> 
             // TODO: Lazy loading.
-            let data = _src.ReadData(p)
+            let data = _source.ReadData(p)
             in Busy (data, p, _hash data)
           | _ -> failwith "unexpected"
 
@@ -93,13 +93,13 @@ type StreamSourceStorage(_src: StreamSource, _hashTableSource: StreamSource) =
     _hashTable.TryFind(data)
 
   let _readData (p: StoragePointer) =
-    _src.ReadData(p)
+    _source.ReadData(p)
 
   let _writeData data =
     match _tryFindData data with
     | Some p -> p
     | None ->
-      let p       = _src.WriteData(data)
+      let p       = _source.WriteData(data)
       let ()      =  _hashTable.Update(data, p)
       in p
 
