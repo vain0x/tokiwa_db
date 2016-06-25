@@ -70,7 +70,7 @@ module StorageTest =
       values |> Seq.groupBy (fun (p, v) -> v)
       |> Seq.map (fun (v, ps) ->
         test {
-          do! ps |> Seq.equalAll |> assertPred
+          do! ps |> assertSatisfies Seq.equalAll
         })
     /// Concat tests.
     seq {

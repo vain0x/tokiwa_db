@@ -17,7 +17,7 @@ module RepositoryTest =
         let _ = repo.Add("x0.x")
         let _ = repo.Add("x1.x")
         let _ = repo.Add("y0.y")
-        do! repo.TryFind("x0.x") |> Option.isSome |> assertPred
+        do! repo.TryFind("x0.x") |> assertSatisfies Option.isSome
         do! repo.TryFind("____") |> assertEquals None
         do! repo.FindManyBySuffix(".x")
           |> Seq.map fst
