@@ -61,9 +61,6 @@ type ReopenableMemoryStream(_initialValue: array<byte>, _initialPosition: int64)
       stream.Position <- _initialPosition
     in stream
 
-  member this.ToArray() =
-    _stream.ToArray()
-
   override this.CanRead       = true
   override this.CanSeek       = true
   override this.CanTimeout    = false
