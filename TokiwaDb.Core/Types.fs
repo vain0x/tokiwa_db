@@ -43,18 +43,21 @@ module Types =
     | Int           of int64
     | Float         of float
     | String        of string
+    | Binary        of array<byte>
     | Time          of DateTime
 
   type ValuePointer =
     | PInt           of int64
     | PFloat         of float
     | PString        of StoragePointer
+    | PBinary        of StoragePointer
     | PTime          of DateTime
 
   type ValueType =
     | TInt
     | TFloat
     | TString
+    | TBinary
     | TTime
 
   type Field =
