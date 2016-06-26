@@ -51,44 +51,86 @@ type FileStreamSource(_file: FileInfo) =
   override this.Length =
     _file |> FileInfo.length
 
+type ReopenableMemoryStream(_initialValue: array<byte>, _initialPosition: int64) =
+  inherit Stream()
+
+  let _stream =
+    let stream = new MemoryStream()
+    let () =
+      stream.Write(_initialValue, 0, _initialValue.Length)
+      stream.Position <- _initialPosition
+    in stream
+
+  override this.CanRead       = true
+  override this.CanSeek       = true
+  override this.CanTimeout    = false
+  override this.CanWrite      = true
+  override this.Length        = _stream.Length
+  override this.ReadTimeout   = _stream.ReadTimeout
+  override this.WriteTimeout  = _stream.WriteTimeout
+
+  override this.Position
+    with get () = _stream.Position
+    and  set v  = _stream.Position <- v
+
+  override this.Flush()       = ()
+
+  override this.Seek(offset, origin) =
+    _stream.Seek(offset, origin)
+
+  override this.SetLength(newLength) =
+    _stream.SetLength(newLength)
+
+  override this.Read(buffer, offset, count) =
+    _stream.Read(buffer, offset, count)
+
+  override this.ReadByte() =
+    _stream.ReadByte()
+
+  override this.Write(data, offset, count) =
+    _stream.Write(data, offset, count)
+
+  override this.WriteByte(value) =
+    _stream.WriteByte(value)
+
+  new (value: array<byte>) =
+    new ReopenableMemoryStream(value, 0L)
+
+  new () =
+    new ReopenableMemoryStream([||])
+
 type MemoryStreamSource(_buffer: array<byte>) =
   inherit StreamSource()
 
-  let mutable _buffer = _buffer
+  let mutable _stream =
+    new ReopenableMemoryStream(_buffer)
 
-  let _open index =
-    let stream =
-      { new MemoryStream() with
-          override this.Close() =
-            _buffer <- this.ToArray()
-            base.Close()
-      }
-    let ()    = stream.Write(_buffer, 0, _buffer.Length)
-    let _     = stream.Seek(index, SeekOrigin.Begin)
-    in stream
+  let _open position =
+    _stream.Position <- position
+    _stream :> Stream
 
   new() = new MemoryStreamSource([||])
 
-  member private this.GetBuffer() =
-    _buffer
+  member private this.UnderlyingStream() =
+    _stream
 
   override this.OpenReadWrite() =
-    _open 0L :> Stream
+    _open 0L
 
   override this.OpenRead() =
-    this.OpenReadWrite()
+    _open 0L
 
   override this.OpenAppend() =
-    _open _buffer.LongLength :> Stream
+    _open _stream.Length
 
   override this.Clear() =
-    _buffer <- [||]
+    _stream.SetLength(0L)
 
   override this.WriteAll(writeTo) =
     let temporarySource   = MemoryStreamSource ()
     let ()                = temporarySource |> writeTo
-    let ()                = _buffer <- temporarySource.GetBuffer()
+    let ()                = _stream <- temporarySource.UnderlyingStream()
     in ()
 
   override this.Length =
-    _buffer.LongLength
+    _stream.Length
