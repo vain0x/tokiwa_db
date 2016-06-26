@@ -19,6 +19,9 @@ module StreamSourceTest =
       do! stream.ReadByte() |> assertEquals 1
       do! stream.ReadByte() |> assertEquals 2
       let () = stream.Close()
+      // WriteAll test.
+      do ss.WriteAll (fun ss -> ss.WriteString("hello"))
+      do! ss.ReadString() |> assertEquals "hello"
       return ()
     }
 

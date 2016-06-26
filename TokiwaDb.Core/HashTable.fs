@@ -31,42 +31,50 @@ type HashTable<'k, 'v when 'k: equality>
   let rec _rehash () =
     let capacity'   = _capacity * 2L + 7L
     let elements    =
-      _array |> IResizeArray.toSeq
+      _array
       |> Seq.choose (function | Busy (k, v, h) -> Some (k, v) | _ -> None)
       |> Seq.toArray
-    // TODO: Create a temporary file and rebuild this hash table in it then swap by renaming.
     let ()          = 
       _capacity <- capacity'
       _countBusy <- 0L
-      _array.Initialize(capacity', Empty)
+      _array.SetAll(fun array' ->
+        let () = array'.Initialize(capacity', Empty)
+        let () =
+          for (k, v) in elements do
+            _updateImpl array' k v
+        in ()
+        )
       assert (_array.Length = _capacity)
-    let ()          =
-      for (k, v) in elements do
-        _update k v
     in ()
 
-  and _insert f key value =
+  and _insertImpl (array': IResizeArray<_>) f key value =
     let (hash, i0) = _hash key
     let rec loop i =
       if i = _capacity then
         _rehash()
-        _insert f key value
+        _insertImpl array' f key value
       else
         let h = (i0 + i) % _capacity
-        match _array.Get(h) with
+        match array'.Get(h) with
         | Busy (key', value', hash') when hash = hash' && key = key' ->
-          _array.Set(h, Busy (key, f value' value, hash))
+          array'.Set(h, Busy (key, f value' value, hash))
         | Busy _ ->
           loop (i + 1L)
         | Empty | Removed ->
-          _array.Set(h, Busy (key, value, hash))
+          array'.Set(h, Busy (key, value, hash))
           _countBusy <- _countBusy + 1L
           if _loadFactor () >= 0.8 then
             _rehash()
     in loop 0L
 
-  and _update =
-    _insert (fun v v' -> v')
+  and _updateImpl array' =
+    _insertImpl array' (fun v v' -> v')
+
+  let _insert =
+    _insertImpl _array
+
+  let _update =
+    _updateImpl _array
 
   let _remove key =
     let (hash, i0) = _hash key
@@ -111,7 +119,7 @@ type HashTable<'k, 'v when 'k: equality>
       assert (_array.Length = _capacity)
     else
       _countBusy <- 
-        _array |> IResizeArray.toSeq
+        _array
         |> Seq.map (function Busy _ -> 1L | _ -> 0L)
         |> Seq.sum
 
