@@ -237,5 +237,15 @@ module TableTest =
         |> Trial.returnOrFail
         |> assertEquals [| 4L |]
       let () = transaction.Rollback()
+
+      // Drop test.
+      let () = transaction.Begin()
+      let () = items.Drop()
+      // Dropped table can be dropped. Just nothing happens.
+      let () = items.Drop() 
+      // Dropped table can't be modified.
+      do! items.Remove([|0L|])
+        |> assertSatisfies (function | Fail [Error.TableAlreadyDropped _] -> true | _ -> false)
+      let () = transaction.Rollback()
       return ()
     }

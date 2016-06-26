@@ -106,6 +106,7 @@ module Types =
   type Operation =
     | InsertRecords       of TableId * array<RecordPointer>
     | RemoveRecords       of TableId * array<RecordId>
+    | DropTable           of TableId
 
   type [<AbstractClass>] Transaction() =
     abstract member BeginCount: int
@@ -138,6 +139,7 @@ module Types =
 
     abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<RecordId> -> unit
+    abstract member PerformDrop: unit -> unit
     abstract member Insert: array<Record> -> Result<array<RecordId>, Error>
     abstract member Remove: array<RecordId> -> Result<unit, Error>
     abstract member Drop: unit -> unit

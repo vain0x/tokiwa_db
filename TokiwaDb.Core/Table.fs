@@ -37,6 +37,17 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   let mutable _hardLength =
     _recordPointersSource.Length / _recordLength
 
+  let _canBeModified () =
+    let alreadyDropped () =
+      _isAliveAt _db.CurrentRevisionId |> not
+    let willBeDropped () =
+      _db.Transaction.Operations |> Seq.exists (fun operation ->
+        match operation with
+        | DropTable (tableId) when tableId = _id -> true
+        |_ -> false
+        )
+    in not (alreadyDropped ()) && not (willBeDropped ())
+
   let _insertedRecordsInTransaction () =
     _db.Transaction.Operations |> Seq.collect (fun operation ->
       seq {
@@ -161,7 +172,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   let _insert records =
     lock _db.Transaction.SyncRoot (fun () ->
       trial {
-        if _isAliveAt _db.CurrentRevisionId |> not then
+        if _canBeModified () |> not then
           do! fail <| Error.TableAlreadyDropped _id
         let! recordPointers = _validateInsertedRecords records
         let length = _length ()
@@ -199,7 +210,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
 
   let _remove recordIds =
     trial {
-      if _isAliveAt _db.CurrentRevisionId |> not then
+      if _canBeModified () |> not then
         do! fail <| Error.TableAlreadyDropped _id
       let! recordIds =
         [|
@@ -216,7 +227,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
       return ()
     }
 
-  let _drop () =
+  let _performDrop () =
     lock _db.Transaction.SyncRoot (fun () ->
       let revisionId      = _db.Transaction.RevisionServer.Increase()
       let ()              =
@@ -226,6 +237,10 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
           .WriteString(_schema |> FsYaml.customDump)
       in ()
       )
+
+  let _drop () =
+    if _canBeModified () then
+      _db.Transaction.Add(DropTable _id)
 
   static member Create
     ( db: Database
@@ -279,6 +294,9 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
 
   override this.Remove(recordIds) =
     _remove recordIds
+
+  override this.PerformDrop() =
+    _performDrop ()
 
   override this.Drop() =
     _drop ()
