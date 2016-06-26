@@ -162,7 +162,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
     lock _db.Transaction.SyncRoot (fun () ->
       trial {
         if _isAliveAt _db.CurrentRevisionId |> not then
-          do! fail <| Error.TableAlreadyDroped _id
+          do! fail <| Error.TableAlreadyDropped _id
         let! recordPointers = _validateInsertedRecords records
         let length = _length ()
         let (recordIds, recordPointers) =
@@ -200,7 +200,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   let _remove recordIds =
     trial {
       if _isAliveAt _db.CurrentRevisionId |> not then
-        do! fail <| Error.TableAlreadyDroped _id
+        do! fail <| Error.TableAlreadyDropped _id
       let! recordIds =
         [|
           for recordId in recordIds ->

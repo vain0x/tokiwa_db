@@ -107,7 +107,7 @@ module TableTest =
       do! persons |> assertSatisfies (Mortal.isAliveAt testDb.CurrentRevisionId >> not)
       // Try to insert into/remove from dropped table should cause an error.
       let assertCausesTableAlreadyDroppedError result =
-        result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)
+        result |> assertSatisfies (function | Fail [Error.TableAlreadyDropped _] -> true | _ -> false)
       do! persons.Insert([| [| String "Len"; Int 14L |] |])
         |> assertCausesTableAlreadyDroppedError
       do! persons.Remove([| 0L |])
