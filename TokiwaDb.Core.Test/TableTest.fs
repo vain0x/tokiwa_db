@@ -107,7 +107,7 @@ module TableTest =
       do! persons |> assertSatisfies (Mortal.isAliveAt testDb.CurrentRevisionId >> not)
       // Try to insert into/remove from dropped table should cause an error.
       let assertCausesTableAlreadyDroppedError result =
-        result |> assertSatisfies (function | Fail [Error.TableAlreadyDroped _] -> true | _ -> false)
+        result |> assertSatisfies (function | Fail [Error.TableAlreadyDropped _] -> true | _ -> false)
       do! persons.Insert([| [| String "Len"; Int 14L |] |])
         |> assertCausesTableAlreadyDroppedError
       do! persons.Remove([| 0L |])
@@ -236,6 +236,16 @@ module TableTest =
       do! items.Insert([| [| String "Rin"; String "Oranges" |] |])
         |> Trial.returnOrFail
         |> assertEquals [| 4L |]
+      let () = transaction.Rollback()
+
+      // Drop test.
+      let () = transaction.Begin()
+      let () = items.Drop()
+      // Dropped table can be dropped. Just nothing happens.
+      let () = items.Drop() 
+      // Dropped table can't be modified.
+      do! items.Remove([|0L|])
+        |> assertSatisfies (function | Fail [Error.TableAlreadyDropped _] -> true | _ -> false)
       let () = transaction.Rollback()
       return ()
     }

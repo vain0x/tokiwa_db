@@ -89,6 +89,8 @@ type RepositoryDatabase(_repo: Repository) as this =
         _tables.[int tableId].PerformInsert(records)
       | RemoveRecords (tableId, recordIds) ->
         _tables.[int tableId].PerformRemove(recordIds)
+      | DropTable (tableId) ->
+        _tables.[int tableId].PerformDrop()
 
   let mutable _isDisposed = false
 
