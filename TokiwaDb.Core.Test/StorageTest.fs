@@ -52,6 +52,7 @@ module StorageTest =
         String "hello, world!"
         String "こんにちわ世界"
         String "hello, world!"
+        Binary [| for i in 0..7 -> byte i |]
       ]
     /// Storage can store values.
     let values =

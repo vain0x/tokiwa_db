@@ -124,6 +124,7 @@ type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) 
     | PFloat x     -> Float x
     | PTime x      -> Time x
     | PString p    -> p |> _readString |> Value.String
+    | PBinary p    -> p |> _readData |> Value.Binary
 
   override this.Store(value) =
     match value with
@@ -131,6 +132,7 @@ type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) 
     | Float x     -> PFloat x
     | Time x      -> PTime x
     | String s    -> s |> _writeString |> PString
+    | Binary data -> data |> _writeData |> PBinary
 
 type MemoryStorage() =
   inherit StreamSourceStorage(new MemoryStreamSource(), new MemoryStreamSource())

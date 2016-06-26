@@ -70,6 +70,7 @@ module Value =
     | Int _    -> TInt
     | Float _  -> TFloat
     | String _ -> TString
+    | Binary _ -> TBinary
     | Time _   -> TTime
 
 module ValuePointer =
@@ -78,6 +79,7 @@ module ValuePointer =
     | TInt      -> PInt p
     | TFloat    -> PFloat (BitConverter.Int64BitsToDouble p)
     | TString   -> PString p
+    | TBinary   -> PBinary p
     | TTime     -> PTime (DateTime.FromBinary(p))
 
   let toUntyped =
@@ -85,6 +87,7 @@ module ValuePointer =
     | PInt p    -> p
     | PFloat d  -> BitConverter.DoubleToInt64Bits(d)
     | PString p -> p
+    | PBinary p -> p
     | PTime t   -> t.ToBinary()
 
   let serialize vp =
@@ -98,6 +101,7 @@ module ValuePointer =
       ([|
         Int64Serializer()
         FloatSerializer()
+        Int64Serializer()
         Int64Serializer()
         DateTimeSerializer()
       |])
