@@ -25,7 +25,7 @@ module MortalValue =
     then mortal.Value |> Some
     else None
 
-  let isBorn t (mortal: MortalValue<_>) =
+  let beBorn t (mortal: MortalValue<_>) =
     if mortal.Birth = Mortal.maxLifeSpan
     then { mortal with Birth = t }
     else mortal

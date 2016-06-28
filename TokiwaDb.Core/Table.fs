@@ -251,7 +251,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     , revisionId: RevisionId
     ) =
     // Get born.
-    let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.isBorn revisionId }
+    let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.beBorn revisionId }
     /// Create schema file.
     let schemaSource    = repo.Add(".schema")
     let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)
