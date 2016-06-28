@@ -228,15 +228,13 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
     }
 
   let _performDrop () =
-    lock _db.Transaction.SyncRoot (fun () ->
-      let revisionId      = _db.Transaction.RevisionServer.Increase()
-      let ()              =
-        _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
-      let ()              =
-        (_repo.TryFind(".schema") |> Option.get)
-          .WriteString(_schema |> FsYaml.customDump)
-      in ()
-      )
+    let revisionId      = _db.Transaction.RevisionServer.Next
+    let ()              =
+      _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
+    let ()              =
+      (_repo.TryFind(".schema") |> Option.get)
+        .WriteString(_schema |> FsYaml.customDump)
+    in ()
 
   let _drop () =
     if _canBeModified () then
