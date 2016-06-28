@@ -115,9 +115,6 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.Tables =
     _tables :> seq<Table>
 
-  override this.TableById(tableId) =
-    _tables |> ResizeArray.tryItem (tableId |> int)
-
   override this.CreateTable(schema: TableSchema) =
     _createTable schema
 
