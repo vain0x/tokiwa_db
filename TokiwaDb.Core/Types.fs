@@ -26,7 +26,7 @@ module Types =
     abstract member Birth: RevisionId
     abstract member Death: RevisionId
 
-  type Mortal<'x> =
+  type MortalValue<'x> =
     {
       Birth: RevisionId
       Death: RevisionId
@@ -72,7 +72,7 @@ module Types =
       /// Except for id field.
       Fields        : array<Field>
       Indexes       : array<IndexSchema>
-      LifeSpan      : Mortal<unit>
+      LifeSpan      : MortalValue<unit>
     }
 
   type Record =
@@ -151,8 +151,8 @@ module Types =
     abstract member Relation: RevisionId -> Relation
     abstract member Indexes: array<ImplHashTableIndex>
 
-    abstract member RecordById: RecordId -> option<Mortal<RecordPointer>>
-    abstract member RecordPointers: seq<Mortal<RecordPointer>>
+    abstract member RecordById: RecordId -> option<MortalValue<RecordPointer>>
+    abstract member RecordPointers: seq<MortalValue<RecordPointer>>
 
     abstract member PerformInsert: array<RecordPointer> -> unit
     abstract member PerformRemove: array<RecordId> -> unit

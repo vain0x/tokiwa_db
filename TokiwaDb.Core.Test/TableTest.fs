@@ -63,7 +63,7 @@ module TableTest =
     }
 
   let toSeqTest =
-    let body (expected, (recordPointer: Mortal<RecordPointer>)) =
+    let body (expected, (recordPointer: MortalValue<RecordPointer>)) =
       test {
         do! storage.Derefer(recordPointer.Value).[1..] |> assertEquals expected
       }

@@ -80,11 +80,11 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
         yield! RecordPointer.readFromStream (_fields |> Seq.skip 1) stream
       |]
     in
-      Mortal.readFromStream readValue stream
+      MortalValue.readFromStream readValue stream
 
   let _writeRecordPointer t recordPointer (stream: Stream) =
     Mortal.create t (recordPointer |> RecordPointer.dropId)
-    |> Mortal.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
+    |> MortalValue.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
 
   let _allRecordPointers () =
     seq {
@@ -205,7 +205,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
           in
             if (record |> Mortal.isAliveAt revId) then
               stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              Mortal.killInStream revId stream
+              MortalValue.killInStream revId stream
               stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
               for index in _indexes do
                 index.Remove(index.Projection(record.Value)) |> ignore
@@ -233,7 +233,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
   let _performDrop () =
     let revisionId      = (_transaction ()).RevisionServer.Next
     let ()              =
-      _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
+      _schema <- { _schema with LifeSpan = _schema.LifeSpan |> MortalValue.kill revisionId }
     let ()              =
       (_repo.TryFind(".schema") |> Option.get)
         .WriteString(_schema |> FsYaml.customDump)
@@ -251,7 +251,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     , revisionId: RevisionId
     ) =
     // Get born.
-    let schema          = { schema with LifeSpan = schema.LifeSpan |> Mortal.isBorn revisionId }
+    let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.isBorn revisionId }
     /// Create schema file.
     let schemaSource    = repo.Add(".schema")
     let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)

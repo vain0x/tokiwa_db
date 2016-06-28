@@ -19,22 +19,23 @@ module Mortal =
   let isAliveAt t (mortal: IMortal) =
     mortal.Birth <= t && t < mortal.Death
 
-  let valueIfAliveAt t (mortal: Mortal<_>) =
-    if mortal |> isAliveAt t
+module MortalValue =
+  let valueIfAliveAt t (mortal: MortalValue<_>) =
+    if mortal |> Mortal.isAliveAt t
     then mortal.Value |> Some
     else None
 
-  let isBorn t (mortal: Mortal<_>) =
-    if mortal.Birth = maxLifeSpan
+  let isBorn t (mortal: MortalValue<_>) =
+    if mortal.Birth = Mortal.maxLifeSpan
     then { mortal with Birth = t }
     else mortal
 
-  let kill t (mortal: Mortal<_>) =
-    if mortal |> isAliveAt t
+  let kill t (mortal: MortalValue<_>) =
+    if mortal |> Mortal.isAliveAt t
     then { mortal with Death = t }
     else mortal
 
-  let map (f: 'x -> 'y) (m: Mortal<'x>): Mortal<'y> =
+  let map (f: 'x -> 'y) (m: MortalValue<'x>): MortalValue<'y> =
     {
       Birth     = m.Birth
       Death     = m.Death
@@ -52,7 +53,7 @@ module Mortal =
         Value     = value
       }
 
-  let writeToStream writeValue (stream: Stream) (this: Mortal<_>) =
+  let writeToStream writeValue (stream: Stream) (this: MortalValue<_>) =
     stream |> Stream.writeInt64 this.Birth
     stream |> Stream.writeInt64 this.Death
     stream |> writeValue this.Value
