@@ -106,6 +106,9 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.Name =
     _repo.Name
 
+  override this.CurrentRevisionId =
+    _transaction.RevisionServer.Current
+
   override this.Transaction =
     _transaction :> Transaction
 

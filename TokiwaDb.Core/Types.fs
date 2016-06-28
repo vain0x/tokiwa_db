@@ -179,5 +179,3 @@ module Types =
 
     abstract member CreateTable: TableSchema -> ImplTable
     abstract member Perform: array<Operation> -> unit
-
-    override this.CurrentRevisionId = this.ImplTransaction.RevisionServer.Current
