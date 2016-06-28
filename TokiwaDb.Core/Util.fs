@@ -63,21 +63,8 @@ module Seq =
     then true
     else xs |> Seq.skip 1 |> Seq.forall ((=) (xs |> Seq.head))
 
-module Int64 =
-  let toByteArray n =
-    Seq.unfold (fun (n, i) ->
-      if i = 8
-      then None
-      else Some (byte (n &&& 0xFFL), (n >>> 8, i + 1))
-      ) (n, 0)
-    |> Seq.toArray
-    |> Array.rev
-
-  let ofByteArray (bs: array<byte>) =
-    assert (bs.Length = 8)
-    bs |> Array.fold (fun n b -> (n <<< 8) ||| (int64 b)) 0L
-
 module Stream =
+  open System
   open System.IO
   open System.Text
 
@@ -93,10 +80,10 @@ module Stream =
   let readInt64 (stream: Stream) =
     let bytes = Array.zeroCreate 8
     let _ = stream.Read(bytes, 0, bytes.Length)
-    in bytes |> Int64.ofByteArray
+    in BitConverter.ToInt64(bytes, 0)
 
   let writeInt64 (n: int64) (stream: Stream) =
-    let bytes = n |> Int64.toByteArray
+    let bytes = BitConverter.GetBytes(n)
     in stream.Write(bytes, 0, bytes.Length)
 
 module FileInfo =
