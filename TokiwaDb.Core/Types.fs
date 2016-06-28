@@ -112,30 +112,44 @@ module Types =
     | DropTable           of TableId
 
   type [<AbstractClass>] Transaction() =
-    abstract member BeginCount: int
-    abstract member Operations: seq<Operation>
-    abstract member RevisionServer: RevisionServer
-
     abstract member Begin: unit -> unit
-    abstract member Add: Operation -> unit
     abstract member Commit: unit -> unit
     abstract member Rollback: unit -> unit
 
+  type [<AbstractClass>] ImplTransaction() =
+    inherit Transaction()
+
     abstract member SyncRoot: obj
+    abstract member RevisionServer: RevisionServer
+    abstract member BeginCount: int
+    abstract member Operations: seq<Operation>
+    abstract member Add: Operation -> unit
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
     abstract member TryFind: RecordPointer -> option<RecordId>
 
+  type [<AbstractClass>] ImplHashTableIndex() =
+    inherit HashTableIndex()
+
     abstract member Insert: RecordPointer * RecordId -> unit
     abstract member Remove: RecordPointer -> bool
-
+    
   type [<AbstractClass>] Table() =
     abstract member Id: TableId
+    abstract member Name: string
+    abstract member Drop: unit -> unit
+
+    // TODO: Add RecordById, Insert, etc.
+    // TODO: Implement IMortal.
+
+  type [<AbstractClass>] ImplTable() =
+    inherit Table()
+
+    abstract member Database: ImplDatabase
     abstract member Schema: TableSchema
     abstract member Relation: RevisionId -> Relation
-    abstract member Database: Database
-    abstract member Indexes: array<HashTableIndex>
+    abstract member Indexes: array<ImplHashTableIndex>
 
     abstract member RecordById: RecordId -> option<Mortal<RecordPointer>>
     abstract member RecordPointers: seq<Mortal<RecordPointer>>
@@ -145,9 +159,6 @@ module Types =
     abstract member PerformDrop: unit -> unit
     abstract member Insert: array<Record> -> Result<array<RecordId>, Error>
     abstract member Remove: array<RecordId> -> Result<unit, Error>
-    abstract member Drop: unit -> unit
-
-    member this.Name = this.Schema.Name
 
     interface IMortal with
       override this.Birth = this.Schema.LifeSpan.Birth
@@ -155,13 +166,18 @@ module Types =
 
   and [<AbstractClass>] Database() =
     abstract member Name: string
-
+    abstract member CurrentRevisionId: RevisionId
     abstract member Transaction: Transaction
+
+  and [<AbstractClass>] ImplDatabase() =
+    inherit Database()
+
+    abstract member ImplTransaction: ImplTransaction
     abstract member Storage: Storage
 
-    abstract member Tables: seq<Table>
+    abstract member ImplTables: seq<ImplTable>
 
-    abstract member CreateTable: TableSchema -> Table
+    abstract member CreateTable: TableSchema -> ImplTable
     abstract member Perform: array<Operation> -> unit
 
-    member this.CurrentRevisionId = this.Transaction.RevisionServer.Current
+    override this.CurrentRevisionId = this.ImplTransaction.RevisionServer.Current

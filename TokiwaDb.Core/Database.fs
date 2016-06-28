@@ -25,7 +25,7 @@ type RepositoryDatabaseConfig =
   }
 
 type RepositoryDatabase(_repo: Repository) as this =
-  inherit Database()
+  inherit ImplDatabase()
 
   let _tableRepo =
     _repo.AddSubrepository("tables")
@@ -61,21 +61,21 @@ type RepositoryDatabase(_repo: Repository) as this =
       }
     in _configSource.WriteString(config |> Yaml.dump)
 
-  let _tables: ResizeArray<Table> =
+  let _tables: ResizeArray<ImplTable> =
     _tableRepo.AllSubrepositories()
     |> Seq.map (fun repo ->
-      RepositoryTable(this, repo.Name |> int64, repo) :> Table
+      RepositoryTable(this, repo.Name |> int64, repo) :> ImplTable
       )
     |> ResizeArray.ofSeq
 
-  let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> Transaction
+  let _transaction = MemoryTransaction(this.Perform, _revisionServer) :> ImplTransaction
 
   let _createTable schema =
-    lock this.Transaction.SyncRoot (fun () ->
+    lock _transaction.SyncRoot (fun () ->
       let tableId         = _tables.Count |> int64
       let revisionId      = _revisionServer.Increase()
       let repo            = _tableRepo.AddSubrepository(string tableId)
-      let table           = RepositoryTable.Create(this, tableId, repo, schema, revisionId) :> Table
+      let table           = RepositoryTable.Create(this, tableId, repo, schema, revisionId) :> ImplTable
       /// Add table.
       _tables.Add(table)
       /// Return the new table.
@@ -107,13 +107,16 @@ type RepositoryDatabase(_repo: Repository) as this =
     _repo.Name
 
   override this.Transaction =
+    _transaction :> Transaction
+
+  override this.ImplTransaction =
     _transaction
 
   override this.Storage =
     _storage :> Storage
 
-  override this.Tables =
-    _tables :> seq<Table>
+  override this.ImplTables =
+    _tables :> seq<ImplTable>
 
   override this.CreateTable(schema: TableSchema) =
     _createTable schema

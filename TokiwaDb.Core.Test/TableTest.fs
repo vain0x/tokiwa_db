@@ -8,7 +8,7 @@ open TokiwaDb.Core
 module TableTest =
   let testDb = new MemoryDatabase("testDb")
   let storage = testDb.Storage
-  let rev = testDb.Transaction.RevisionServer
+  let rev = testDb.ImplTransaction.RevisionServer
   
   let testData =
     [
