@@ -41,15 +41,15 @@ module ModelTest =
 
   let toRecordTest =
     test {
-      let person = Person("Miku", Age = 18L)
+      let person = Person("Miku", Age = 16L)
       do! person |> Model.toRecord
-        |> assertEquals [| String "Miku"; Int 18L |]
+        |> assertEquals [| String "Miku"; Int 16L |]
     }
 
   let ofRecordTest =
     test {
-      let person = [| Int -1L; String "Miku"; Int 18L |] |> Model.ofRecord<Person>
+      let person = [| Int -1L; String "Miku"; Int 16L |] |> Model.ofRecord<Person>
       do! person.Id |> assertEquals -1L
       do! person.Name |> assertEquals "Miku"
-      do! person.Age |> assertEquals 18L
+      do! person.Age |> assertEquals 16L
     }
