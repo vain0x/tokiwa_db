@@ -140,9 +140,6 @@ module Types =
     abstract member Name: string
     abstract member Drop: unit -> unit
 
-    // TODO: Add RecordById, Insert, etc.
-    // TODO: Implement IMortal.
-
   type [<AbstractClass>] ImplTable() =
     inherit BaseTable()
 

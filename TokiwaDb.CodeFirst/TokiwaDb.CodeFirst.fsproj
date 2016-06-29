@@ -48,6 +48,15 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Util.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="TableSchema.fs" />
+    <Compile Include="OrmTable.fs" />
+    <Compile Include="OrmDatabase.fs" />
+    <Compile Include="DbConfig.fs" />
+  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>

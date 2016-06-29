@@ -16,6 +16,7 @@ module ValuePointerTest =
       case (PInt -12345678L, TInt)
       case (PTime DateTime.Now, TTime)
       case (PString 8L, TString)
+      case (PBinary 8L, TBinary)
       case (PFloat 3.1415926535897932384626433832795, TFloat)
       case (PFloat Double.PositiveInfinity, TFloat)
       case (PFloat Double.Epsilon, TFloat)
