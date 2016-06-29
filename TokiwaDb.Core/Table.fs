@@ -284,6 +284,9 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
   override this.RecordById(recordId) =
     _recordById recordId
 
+  override this.CountAllRecords =
+    _length ()
+
   override this.Database = _db
 
   override this.PerformInsert(recordPointers) =

@@ -5,13 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>92728c7a-7754-4fea-ae93-6da2904c8dfb</ProjectGuid>
+    <ProjectGuid>0c049280-d786-4685-803e-27cbb8d165f0</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>TokiwaDb.Core</RootNamespace>
-    <AssemblyName>TokiwaDb.Core</AssemblyName>
+    <RootNamespace>TokiwaDb.CodeFirst</RootNamespace>
+    <AssemblyName>TokiwaDb.CodeFirst</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>TokiwaDb.Core</Name>
+    <Name>TokiwaDb.CodeFirst</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\TokiwaDb.Core.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\TokiwaDb.CodeFirst.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,8 +30,33 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\TokiwaDb.Core.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\TokiwaDb.CodeFirst.XML</DocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TokiwaDb.Core\TokiwaDb.Core.fsproj">
+      <Name>TokiwaDb.Core</Name>
+      <Project>{92728c7a-7754-4fea-ae93-6da2904c8dfb}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Util.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="TableSchema.fs" />
+    <Compile Include="OrmTable.fs" />
+    <Compile Include="OrmDatabase.fs" />
+    <Compile Include="DbConfig.fs" />
+  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -55,35 +80,6 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <ItemGroup>
-    <Compile Include="..\paket-files\fsprojects\Chessie\src\Chessie\ErrorHandling.fs">
-      <Paket>True</Paket>
-      <Link>ErrorHandling.fs</Link>
-    </Compile>
-    <Compile Include="Util.fs" />
-    <Compile Include="StreamSource.fs" />
-    <Compile Include="Repository.fs" />
-    <Compile Include="Serializer.fs" />
-    <Compile Include="IResizeArray.fs" />
-    <Compile Include="HashTable.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="Funcs.fs" />
-    <Compile Include="Storage.fs" />
-    <Compile Include="Relation.fs" />
-    <Compile Include="HashTableIndex.fs" />
-    <Compile Include="Table.fs" />
-    <Compile Include="Transaction.fs" />
-    <Compile Include="Database.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2')">
       <ItemGroup>

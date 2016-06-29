@@ -111,6 +111,14 @@ module Record =
   let toType record =
     record |> Array.map Value.toType
 
+  let tryId record =
+    match record |> Array.tryHead with
+    | Some (Int recordId) -> recordId |> Some
+    | _ -> None
+
+  let dropId (record: Record) =
+    record.[1..]
+
 module RecordPointer =
   let hash recordPointer =
     recordPointer |> Array.map ValuePointer.hash |> Array.hash |> int64
@@ -148,6 +156,9 @@ module Field =
 
   let string name =
     Field (name, TString)
+
+  let binary name =
+    Field (name, TBinary)
 
   let time name =
     Field (name, TTime)

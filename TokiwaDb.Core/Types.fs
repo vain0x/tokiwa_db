@@ -139,9 +139,9 @@ module Types =
     abstract member Id: TableId
     abstract member Name: string
     abstract member Drop: unit -> unit
-
-    // TODO: Add RecordById, Insert, etc.
-    // TODO: Implement IMortal.
+    
+    /// Count of all records, including ones already removed or inserted in current transaction.
+    abstract member CountAllRecords: int64
 
   type [<AbstractClass>] ImplTable() =
     inherit BaseTable()
