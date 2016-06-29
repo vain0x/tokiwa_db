@@ -3,7 +3,7 @@
 open HashTableDetail
 
 type StreamHashTableIndex(_fieldIndexes: array<int>, _source: StreamSource) =
-  inherit HashTableIndex()
+  inherit ImplHashTableIndex()
 
   let _hashTable =
     let serializer =

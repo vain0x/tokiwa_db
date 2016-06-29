@@ -4,8 +4,8 @@ open System
 open System.IO
 open Chessie.ErrorHandling
 
-type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
-  inherit Table()
+type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
+  inherit ImplTable()
 
   let mutable _schema =
     (_repo.TryFind(".schema") |> Option.get).ReadString()
@@ -18,7 +18,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
         _repo.TryFind(sprintf "%d.ht_index" i)
         |> Option.get
         |> (fun source ->
-          StreamHashTableIndex(fieldIndexes, source) :> HashTableIndex
+          StreamHashTableIndex(fieldIndexes, source) :> ImplHashTableIndex
           ))
 
   let _recordPointersSource =
@@ -37,11 +37,14 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   let mutable _hardLength =
     _recordPointersSource.Length / _recordLength
 
+  let _transaction () =
+    _db.ImplTransaction
+
   let _canBeModified () =
     let alreadyDropped () =
       _isAliveAt _db.CurrentRevisionId |> not
     let willBeDropped () =
-      _db.Transaction.Operations |> Seq.exists (fun operation ->
+      (_transaction ()).Operations |> Seq.exists (fun operation ->
         match operation with
         | DropTable (tableId) when tableId = _id -> true
         |_ -> false
@@ -49,7 +52,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
     in not (alreadyDropped ()) && not (willBeDropped ())
 
   let _insertedRecordsInTransaction () =
-    _db.Transaction.Operations |> Seq.collect (fun operation ->
+    (_transaction ()).Operations |> Seq.collect (fun operation ->
       seq {
         match operation with
         | InsertRecords (tableId, records) when tableId = _id ->
@@ -77,11 +80,11 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
         yield! RecordPointer.readFromStream (_fields |> Seq.skip 1) stream
       |]
     in
-      Mortal.readFromStream readValue stream
+      MortalValue.readFromStream readValue stream
 
   let _writeRecordPointer t recordPointer (stream: Stream) =
     Mortal.create t (recordPointer |> RecordPointer.dropId)
-    |> Mortal.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
+    |> MortalValue.writeToStream (fun rp stream -> rp |> RecordPointer.writeToStream stream) stream
 
   let _allRecordPointers () =
     seq {
@@ -159,7 +162,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
     }
 
   let _performInsert recordPointers =
-    let revId           = _db.Transaction.RevisionServer.Next
+    let revId           = (_transaction ()).RevisionServer.Next
     use stream          = _recordPointersSource.OpenAppend()
     let ()              =
       for rp in recordPointers do
@@ -170,7 +173,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
     in ()
 
   let _insert records =
-    lock _db.Transaction.SyncRoot (fun () ->
+    lock (_transaction ()).SyncRoot (fun () ->
       trial {
         if _canBeModified () |> not then
           do! fail <| Error.TableAlreadyDropped _id
@@ -185,13 +188,13 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
             )
           |> Array.unzip
         let () =
-          _db.Transaction.Add(InsertRecords (_id, recordPointers))
+          (_transaction ()).Add(InsertRecords (_id, recordPointers))
         return recordIds
       })
 
   let _performRemove recordIds =
     use stream    = _recordPointersSource.OpenReadWrite()
-    let revId     = _db.Transaction.RevisionServer.Next
+    let revId     = (_transaction ()).RevisionServer.Next
     let ()        =
       for recordId in recordIds |> Array.sort do
         match _positionFromId recordId with
@@ -202,7 +205,7 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
           in
             if (record |> Mortal.isAliveAt revId) then
               stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
-              Mortal.killInStream revId stream
+              MortalValue.killInStream revId stream
               stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
               for index in _indexes do
                 index.Remove(index.Projection(record.Value)) |> ignore
@@ -223,34 +226,32 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
         |]
         |> Trial.collect
       let () =
-        _db.Transaction.Add(RemoveRecords (_id, recordIds |> List.toArray))
+        (_transaction ()).Add(RemoveRecords (_id, recordIds |> List.toArray))
       return ()
     }
 
   let _performDrop () =
-    lock _db.Transaction.SyncRoot (fun () ->
-      let revisionId      = _db.Transaction.RevisionServer.Increase()
-      let ()              =
-        _schema <- { _schema with LifeSpan = _schema.LifeSpan |> Mortal.kill revisionId }
-      let ()              =
-        (_repo.TryFind(".schema") |> Option.get)
-          .WriteString(_schema |> FsYaml.customDump)
-      in ()
-      )
+    let revisionId      = (_transaction ()).RevisionServer.Next
+    let ()              =
+      _schema <- { _schema with LifeSpan = _schema.LifeSpan |> MortalValue.kill revisionId }
+    let ()              =
+      (_repo.TryFind(".schema") |> Option.get)
+        .WriteString(_schema |> FsYaml.customDump)
+    in ()
 
   let _drop () =
     if _canBeModified () then
-      _db.Transaction.Add(DropTable _id)
+      (_transaction ()).Add(DropTable _id)
 
   static member Create
-    ( db: Database
+    ( db: ImplDatabase
     , tableId: TableId
     , repo: Repository
     , schema: TableSchema
     , revisionId: RevisionId
     ) =
     // Get born.
-    let schema          = { schema with LifeSpan = schema.LifeSpan |> Mortal.isBorn revisionId }
+    let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.beBorn revisionId }
     /// Create schema file.
     let schemaSource    = repo.Add(".schema")
     let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)
@@ -269,6 +270,8 @@ type RepositoryTable(_db: Database, _id: TableId, _repo: Repository) =
   override this.Id = _id
 
   override this.Schema = _schema
+
+  override this.Name = _schema.Name
 
   override this.Indexes = _indexes
 

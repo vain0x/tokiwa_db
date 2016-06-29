@@ -3,7 +3,7 @@
 open System.Threading
 
 type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: RevisionServer) =
-  inherit Transaction()
+  inherit ImplTransaction()
 
   let _syncRoot = new obj()
 

@@ -8,7 +8,7 @@ open TokiwaDb.Core
 module TableTest =
   let testDb = new MemoryDatabase("testDb")
   let storage = testDb.Storage
-  let rev = testDb.Transaction.RevisionServer
+  let rev = testDb.ImplTransaction.RevisionServer
   
   let testData =
     [
@@ -28,12 +28,6 @@ module TableTest =
       }
     in
       testDb.CreateTable(schema)
-
-  let databaseTryFindTest =
-    test {
-      do! testDb.TableById(0L) |> assertSatisfies Option.isSome
-      do! testDb.TableById(1L) |> assertSatisfies Option.isNone
-    }
 
   let insertTest =
     test {
@@ -69,7 +63,7 @@ module TableTest =
     }
 
   let toSeqTest =
-    let body (expected, (recordPointer: Mortal<RecordPointer>)) =
+    let body (expected, (recordPointer: MortalValue<RecordPointer>)) =
       test {
         do! storage.Derefer(recordPointer.Value).[1..] |> assertEquals expected
       }
