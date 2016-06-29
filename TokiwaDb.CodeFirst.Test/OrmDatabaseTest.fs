@@ -48,14 +48,11 @@ module OrmDatabaseTest =
       db.Table<Person>().Insert(Person(Name = "Miku", Age = 16L))
       // We can reopen the database with the same models.
       let db = OrmDatabase(implDb, schemas)
-      do! (db.Table<Person>()).Items
-        |> Seq.map (fun p -> p.Name)
-        |> Seq.toList
-        |> assertEquals ["Miku"]
+      do! (db.Table<Person>()).CountAllRecords |> assertEquals 1L
       // Opening with different models, all tables are dropped.
       let anotherSchemas = [schemas |> List.head]
       let db = OrmDatabase(implDb, anotherSchemas)
-      do! (db.Table<Person>()).Items |> Seq.toList |> assertEquals []
+      do! (db.Table<Person>()).CountAllRecords |> assertEquals 0L
       let! _ = trap { it (db.Table<Song>()) }
       return ()
     }

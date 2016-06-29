@@ -46,5 +46,8 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   override this.Items =
     _items ()
 
+  override this.CountAllRecords =
+    _impl.CountAllRecords
+
   override this.Insert(model) =
     _insert model
