@@ -135,7 +135,7 @@ module Types =
     abstract member Insert: RecordPointer * RecordId -> unit
     abstract member Remove: RecordPointer -> bool
     
-  type [<AbstractClass>] Table() =
+  type [<AbstractClass>] BaseTable() =
     abstract member Id: TableId
     abstract member Name: string
     abstract member Drop: unit -> unit
@@ -144,7 +144,7 @@ module Types =
     // TODO: Implement IMortal.
 
   type [<AbstractClass>] ImplTable() =
-    inherit Table()
+    inherit BaseTable()
 
     abstract member Database: ImplDatabase
     abstract member Schema: TableSchema
@@ -164,13 +164,13 @@ module Types =
       override this.Birth = this.Schema.LifeSpan.Birth
       override this.Death = this.Schema.LifeSpan.Death
 
-  and [<AbstractClass>] Database() =
+  and [<AbstractClass>] BaseDatabase() =
     abstract member Name: string
     abstract member CurrentRevisionId: RevisionId
     abstract member Transaction: Transaction
 
   and [<AbstractClass>] ImplDatabase() =
-    inherit Database()
+    inherit BaseDatabase()
 
     abstract member ImplTransaction: ImplTransaction
     abstract member Storage: Storage

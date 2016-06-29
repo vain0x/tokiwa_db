@@ -6,7 +6,7 @@ open FsYaml
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Database =
-  let transact (f: unit -> 'x) (this: Database) =
+  let transact (f: unit -> 'x) (this: BaseDatabase) =
     let () =
       this.Transaction.Begin()
     in
