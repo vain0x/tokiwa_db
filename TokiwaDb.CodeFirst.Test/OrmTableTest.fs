@@ -32,3 +32,18 @@ module OrmTableTest =
         |> Array.map (fun person -> person.Name)
         |> assertEquals [| "Miku"; "Yukari" |]
     }
+
+  let removeTest =
+    test {
+      let db = seedDb ()
+      let persons = db.Table<Person>()
+      persons.Remove(0L)
+      do! persons.Items
+        |> Seq.toArray
+        |> Array.choose (fun person ->
+          if (person :> IModel).IsLiveAt(db.CurrentRevisionId)
+          then Some person.Name
+          else None
+          )
+        |> assertEquals [| "Yukari" |]
+    }

@@ -31,6 +31,11 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
     | _ ->
       ArgumentException() |> raise
 
+  let _remove recordId =
+    match _impl.Remove([| recordId |]) with
+    | Pass () -> ()
+    | _ -> ArgumentException() |> raise
+
   override this.Id =
     _impl.Id
 
@@ -51,3 +56,6 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
 
   override this.Insert(model) =
     _insert model
+
+  override this.Remove(recordId) =
+    _remove recordId

@@ -20,6 +20,7 @@ type [<AbstractClass>] Table<'m when 'm :> IModel>() =
   abstract member Items: seq<'m>
 
   abstract member Insert: 'm -> unit
+  abstract member Remove: RecordId -> unit
 
   // TODO: Implement IMortal.
 
