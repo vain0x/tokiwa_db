@@ -11,12 +11,17 @@ module HashTableDetail =
     | Empty
     | Removed
 
+  type HashTableElementCombinator<'v> =
+    | NoCombine
+    | CombineWith     of ('v -> 'v -> 'v)
+
 open HashTableDetail
 
-/// Hash table implemented using open addressing.
-type HashTable<'k, 'v when 'k: equality>
+/// Hash table with open addressing.
+type HashTableBase<'k, 'v when 'k: equality>
   ( _hash: 'k -> Hash
   , _array: IResizeArray<HashTableElement<'k, 'v>>
+  , _combi: HashTableElementCombinator<'v>
   ) =
   let mutable _capacity = _array.Length
   let mutable _countBusy = 0L
@@ -41,76 +46,73 @@ type HashTable<'k, 'v when 'k: equality>
         let () = array'.Initialize(capacity', Empty)
         let () =
           for (k, v) in elements do
-            _updateImpl array' k v
+            _insertImpl array' _combi k v
         in ()
         )
       assert (_array.Length = _capacity)
     in ()
 
-  and _insertImpl (array': IResizeArray<_>) f key value =
+  and _insertImpl (array': IResizeArray<_>) combi key value =
     let (hash, i0) = _hash key
     let rec loop i =
       if i = _capacity then
-        _rehash()
-        _insertImpl array' f key value
+        _rehash ()
+        _insertImpl array' combi key value
       else
         let h = (i0 + i) % _capacity
         match array'.Get(h) with
         | Busy (key', value', hash') when hash = hash' && key = key' ->
-          array'.Set(h, Busy (key, f value' value, hash))
+          match combi with
+          | NoCombine ->
+            loop (i + 1L)
+          | CombineWith f ->
+            array'.Set(h, Busy (key, f value' value, hash))
         | Busy _ ->
           loop (i + 1L)
         | Empty | Removed ->
           array'.Set(h, Busy (key, value, hash))
           _countBusy <- _countBusy + 1L
           if _loadFactor () >= 0.8 then
-            _rehash()
+            _rehash ()
     in loop 0L
-
-  and _updateImpl array' =
-    _insertImpl array' (fun v v' -> v')
 
   let _insert =
     _insertImpl _array
 
-  let _update =
-    _updateImpl _array
-
-  let _remove key =
+  let _remove onlyFirst key =
     let (hash, i0) = _hash key
     let rec loop i =
-      if i < _capacity then
-        let h = (i0 + i) % _capacity
-        match _array.Get(h) with
-        | Busy (key', _, hash') when hash = hash' && key = key' ->
-          _array.Set(h, Removed)
-          _countBusy <- _countBusy - 1L
-          true
-        | Busy _
-        | Removed ->
-          loop (i + 1L)
-        | Empty -> false
-      else false
+      seq {
+        if i < _capacity then
+          let h = (i0 + i) % _capacity
+          match _array.Get(h) with
+          | Busy (key', value', hash') when hash = hash' && key = key' ->
+            _array.Set(h, Removed)
+            _countBusy <- _countBusy - 1L
+            yield value'
+            yield! loop (i + 1L)
+          | Busy _
+          | Removed ->
+            yield! loop (i + 1L)
+          | Empty -> ()
+        }
     in loop 0L
 
-  let _tryFindImpl key =
+  let _findAll key =
     let (hash, i0) = _hash key
     let rec loop i =
-      if i = _capacity
-      then None
-      else
-        let h = (i0 + i) % _capacity
-        match _array.Get(h) with
-        | Busy (key', value', hash') when hash = hash' && key = key' ->
-          Some (h, key', value')
-        | Busy _
-        | Removed -> loop (i + 1L)
-        | Empty -> None
+      seq {
+        if i < _capacity then
+          let h = (i0 + i) % _capacity
+          match _array.Get(h) with
+          | Busy (key', value', hash') when hash = hash' && key = key' ->
+            yield value'
+            yield! loop (i + 1L)
+          | Busy _
+          | Removed -> yield! loop (i + 1L)
+          | Empty -> ()
+      }
     in loop 0L
-
-  let _tryFind key =
-    _tryFindImpl(key)
-    |> Option.map (fun (_, _, value) -> value)
 
   do
     if _capacity = 0L then
@@ -123,22 +125,55 @@ type HashTable<'k, 'v when 'k: equality>
         |> Seq.map (function Busy _ -> 1L | _ -> 0L)
         |> Seq.sum
 
-  new (array: IResizeArray<HashTableElement<'k, 'v>>) =
-    HashTable((fun x -> x.GetHashCode() |> int64), array)
-
   member this.Length = _countBusy
 
-  member this.Insert(key: 'k, value: 'v, f: 'v -> 'v -> 'v) =
-    _insert f key value
+  member this.Insert(key, value, combinator) =
+    _insert combinator key value
 
-  member this.Update(key: 'k, value: 'v) =
-    _update key value
+  member this.Remove(key: 'k, onlyFirst: bool) =
+    _remove onlyFirst key
+
+  member this.FindAll(key: 'k) =
+    _findAll key
+
+type HashTable<'k, 'v when 'k: equality>
+  ( _hash: 'k -> Hash
+  , _array: IResizeArray<HashTableElement<'k, 'v>>
+  ) =
+  let _updater = CombineWith (fun _ -> id)
+
+  let _base = HashTableBase<'k, 'v>(_hash, _array, _updater)
+
+  member this.Length = _base.Length
+
+  member this.Insert(key, value, f) =
+    _base.Insert(key, value, CombineWith f)
+
+  member this.Update(key, value) =
+    _base.Insert(key, value, _updater)
 
   member this.Remove(key: 'k) =
-    _remove key
+    _base.Remove(key, onlyFirst = true) |> Seq.isEmpty |> not
 
   member this.TryFind(key: 'k) =
-    _tryFind key
+    _base.FindAll(key) |> Seq.tryHead
+
+type MultiHashTable<'k, 'v when 'k: equality>
+  ( _hash: 'k -> Hash
+  , _array: IResizeArray<HashTableElement<'k, 'v>>
+  ) =
+  let _base = HashTableBase<'k, 'v>(_hash, _array, NoCombine)
+
+  member this.Length = _base.Length
+
+  member this.Insert(key, value) =
+    _base.Insert(key, value, NoCombine)
+
+  member this.RemoveAll(key: 'k) =
+    _base.Remove(key, onlyFirst = false)
+
+  member this.FindAll(key: 'k) =
+    _base.FindAll(key)
 
 type HashTableElementSerializer<'k, 'v>
   ( _keySerializer: FixedLengthSerializer<'k>

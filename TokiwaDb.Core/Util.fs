@@ -58,6 +58,11 @@ module Map =
     map |> Seq.length
 
 module Seq =
+  let tryHead (xs: seq<'x>): option<'x> =
+    if xs |> Seq.isEmpty
+    then None
+    else xs |> Seq.head |> Some
+
   let equalAll xs =
     if xs |> Seq.isEmpty
     then true
