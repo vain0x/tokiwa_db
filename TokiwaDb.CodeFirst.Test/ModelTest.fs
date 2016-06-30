@@ -9,7 +9,7 @@ open TokiwaDb.CodeFirst.Detail
 
 module ModelTest =
   type Person(_name: string) =
-    inherit Model<Person>()
+    inherit Model()
 
     let mutable _name = _name
 
@@ -46,9 +46,11 @@ module ModelTest =
         |> assertEquals [| String "Miku"; Int 16L |]
     }
 
-  let ofRecordTest =
+  let ofMortalRecordTest =
     test {
-      let person = [| Int -1L; String "Miku"; Int 16L |] |> Model.ofRecord<Person>
+      let person =
+        Mortal.create 0L [| Int -1L; String "Miku"; Int 16L |]
+        |> Model.ofMortalRecord<Person>
       do! person.Id |> assertEquals -1L
       do! person.Name |> assertEquals "Miku"
       do! person.Age |> assertEquals 16L

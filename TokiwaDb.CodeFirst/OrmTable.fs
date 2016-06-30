@@ -8,19 +8,24 @@ open TokiwaDb.CodeFirst
 type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   inherit Table<'m>()
 
-  let _toModel (rp: RecordPointer) =
-    _impl.Database.Storage.Derefer(rp) |> Model.ofRecord<'x>
+  let _toModel (rp: MortalValue<RecordPointer>) =
+    rp |> MortalValue.map _impl.Database.Storage.Derefer
+    |> Model.ofMortalRecord<'x>
 
   let _item recordId =
     match _impl.RecordById(recordId) with
     | Some recordPointer ->
-      recordPointer.Value |> _toModel
+      recordPointer |> _toModel
     | None ->
       ArgumentOutOfRangeException() |> raise
 
-  let _items () =
+  let _allItems () =
     _impl.RecordPointers
-    |> Seq.map (fun rp -> rp.Value |> _toModel)
+    |> Seq.map _toModel
+
+  let _items () =
+    _allItems ()
+    |> Seq.filter (fun item -> item.IsLiveAt(_impl.Database.CurrentRevisionId))
 
   let _insert model =
     assert (model |> Model.hasId |> not)
@@ -30,6 +35,11 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
       model.Id <- recordId
     | _ ->
       ArgumentException() |> raise
+
+  let _remove recordId =
+    match _impl.Remove([| recordId |]) with
+    | Pass () -> ()
+    | _ -> ArgumentException() |> raise
 
   override this.Id =
     _impl.Id
@@ -43,6 +53,9 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   override this.Item(recordId) =
     _item recordId
 
+  override this.AllItems =
+    _allItems ()
+
   override this.Items =
     _items ()
 
@@ -51,3 +64,6 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
 
   override this.Insert(model) =
     _insert model
+
+  override this.Remove(recordId) =
+    _remove recordId

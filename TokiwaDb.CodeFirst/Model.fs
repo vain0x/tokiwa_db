@@ -62,14 +62,16 @@ module Model =
     mappedProperties<'m> ()
     |> Array.map (fun pi -> pi.GetValue(m) |> Value.ofObj)
 
-  /// Create an instance of model from a record with "id".
-  let ofRecord<'m when 'm :> IModel> (record: Record): 'm =
+  /// Create an instance of model from a mortal record with "id".
+  let ofMortalRecord<'m when 'm :> IModel> (record: MortalValue<Record>): 'm =
     let m     = Activator.CreateInstance<'m>()
     let ()    =
-      m.Id <- record |> Record.tryId |> Option.get
+      m.Id <- record.Value |> Record.tryId |> Option.get
+      m.Birth <- record.Birth
+      m.Death <- record.Death
     let ()    =
       Array.zip
-        (record |> Record.dropId)
+        (record.Value |> Record.dropId)
         (mappedProperties<'m> ())
       |> Array.iter (fun (value, pi) -> pi.SetValue(m, value |> Value.toObj))
     in m

@@ -7,13 +7,13 @@ open TokiwaDb.CodeFirst
 open TokiwaDb.CodeFirst.Detail
 
 type Person() =
-  inherit Model<Person>()
+  inherit Model()
 
   member val Name = "" with get, set
   member val Age = 0L with get, set
 
 type Song() =
-  inherit Model<Person>()
+  inherit Model()
 
   member val Name = "" with get, set
   member val Vocal = "" with get, set
