@@ -9,7 +9,7 @@ open TokiwaDb.CodeFirst.Detail
 
 module ModelTest =
   type Person(_name: string) =
-    inherit Model<Person>()
+    inherit Model()
 
     let mutable _name = _name
 

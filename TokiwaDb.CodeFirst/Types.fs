@@ -10,7 +10,7 @@ type IModel =
   abstract member Birth: int64 with get, set
   abstract member Death: int64 with get, set
 
-type [<AbstractClass>] Model<'m when 'm :> IModel>() =
+type [<AbstractClass>] Model() =
   member val Id = -1L with get, set
 
   member this.IsLiveAt(t) =
