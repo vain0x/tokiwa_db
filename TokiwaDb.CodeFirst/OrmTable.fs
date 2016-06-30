@@ -23,6 +23,10 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
     _impl.RecordPointers
     |> Seq.map _toModel
 
+  let _items () =
+    _allItems ()
+    |> Seq.filter (fun item -> item.IsLiveAt(_impl.Database.CurrentRevisionId))
+
   let _insert model =
     assert (model |> Model.hasId |> not)
     let record = model |> Model.toRecord<'m>
@@ -51,6 +55,9 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
 
   override this.AllItems =
     _allItems ()
+
+  override this.Items =
+    _items ()
 
   override this.CountAllRecords =
     _impl.CountAllRecords

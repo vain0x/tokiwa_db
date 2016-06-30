@@ -40,6 +40,7 @@ type [<AbstractClass>] Table<'m when 'm :> IModel>() =
 
   abstract member Item: RecordId -> 'm
   abstract member AllItems: seq<'m>
+  abstract member Items: seq<'m>
 
   abstract member Insert: 'm -> unit
   abstract member Remove: RecordId -> unit
