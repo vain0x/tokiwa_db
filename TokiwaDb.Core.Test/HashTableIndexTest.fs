@@ -22,17 +22,9 @@ module HashTableIndexTest =
       do! hti.Projection([| PInt 0L; PInt 1L; PInt 2L |]) |> assertEquals ([| PInt 1L; PInt 0L |])
     }
 
-  let ``Insert and TryFind Test`` =
+  let ``Insert and FindAll Test`` =
     test {
       let hti = hashTableIndex ()
-      do! hti.TryFind([| PInt 3L; PInt 2L |]) |> assertEquals (Some 1L)
-      do! hti.TryFind([| PInt 4L; PInt 0L |]) |> assertEquals None
-    }
-
-  let ``Insert and Delete Test`` =
-    test {
-      let hti       = hashTableIndex ()
-      let record    = [| PInt 3L; PInt 2L |]
-      do! hti.Remove(record) |> assertEquals true
-      do! hti.TryFind(record) |> assertEquals None
+      do! hti.FindAll([| PInt 3L; PInt 2L |]) |> Seq.toList |> assertEquals [1L]
+      do! hti.FindAll([| PInt 4L; PInt 0L |]) |> Seq.toList |> assertEquals []
     }

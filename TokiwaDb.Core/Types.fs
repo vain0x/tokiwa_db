@@ -127,13 +127,12 @@ module Types =
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
-    abstract member TryFind: RecordPointer -> option<RecordId>
+    abstract member FindAll: RecordPointer -> seq<RecordId>
 
   type [<AbstractClass>] ImplHashTableIndex() =
     inherit HashTableIndex()
 
     abstract member Insert: RecordPointer * RecordId -> unit
-    abstract member Remove: RecordPointer -> bool
     
   type [<AbstractClass>] BaseTable() =
     abstract member Id: TableId

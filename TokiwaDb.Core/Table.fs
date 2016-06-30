@@ -124,7 +124,9 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     let rp = Array.append [| PInt -1L |] recordPointer
     let part = index.Projection(rp)
     let isDuplicated =
-      index.TryFind(part) |> Option.isSome
+      index.FindAll(part)
+        |> Seq.choose _recordById
+        |> Seq.exists (Mortal.isAliveAt _db.CurrentRevisionId)
       || (_insertedRecordsInTransaction ()
         |> Seq.exists (fun insertedRp -> index.Projection(insertedRp) = part))
       || bucket |> Set.contains part
@@ -207,8 +209,6 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
               stream.Seek(-_recordLength, SeekOrigin.Current) |> ignore
               MortalValue.killInStream revId stream
               stream.Seek(_recordLength, SeekOrigin.Current) |> ignore
-              for index in _indexes do
-                index.Remove(index.Projection(record.Value)) |> ignore
     in ()
 
   let _remove recordIds =
