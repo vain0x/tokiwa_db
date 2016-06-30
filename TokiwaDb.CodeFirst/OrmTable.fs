@@ -19,7 +19,7 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
     | None ->
       ArgumentOutOfRangeException() |> raise
 
-  let _items () =
+  let _allItems () =
     _impl.RecordPointers
     |> Seq.map _toModel
 
@@ -49,8 +49,8 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   override this.Item(recordId) =
     _item recordId
 
-  override this.Items =
-    _items ()
+  override this.AllItems =
+    _allItems ()
 
   override this.CountAllRecords =
     _impl.CountAllRecords

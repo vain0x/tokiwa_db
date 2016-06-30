@@ -23,11 +23,11 @@ module OrmTableTest =
     persons.Insert(Person(Name = "Yukari", Age = 18L))
     db
 
-  let itemsTest =
+  let allItemsTest =
     test {
       let db = seedDb ()
       let persons = db.Table<Person>()
-      do! persons.Items
+      do! persons.AllItems
         |> Seq.toArray
         |> Array.map (fun person -> person.Name)
         |> assertEquals [| "Miku"; "Yukari" |]
@@ -38,7 +38,7 @@ module OrmTableTest =
       let db = seedDb ()
       let persons = db.Table<Person>()
       persons.Remove(0L)
-      do! persons.Items
+      do! persons.AllItems
         |> Seq.toArray
         |> Array.choose (fun person ->
           if person.IsLiveAt(db.CurrentRevisionId)
