@@ -8,19 +8,20 @@ open TokiwaDb.CodeFirst
 type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   inherit Table<'m>()
 
-  let _toModel (rp: RecordPointer) =
-    _impl.Database.Storage.Derefer(rp) |> Model.ofRecord<'x>
+  let _toModel (rp: MortalValue<RecordPointer>) =
+    rp |> MortalValue.map _impl.Database.Storage.Derefer
+    |> Model.ofMortalRecord<'x>
 
   let _item recordId =
     match _impl.RecordById(recordId) with
     | Some recordPointer ->
-      recordPointer.Value |> _toModel
+      recordPointer |> _toModel
     | None ->
       ArgumentOutOfRangeException() |> raise
 
   let _items () =
     _impl.RecordPointers
-    |> Seq.map (fun rp -> rp.Value |> _toModel)
+    |> Seq.map _toModel
 
   let _insert model =
     assert (model |> Model.hasId |> not)

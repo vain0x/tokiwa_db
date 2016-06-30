@@ -41,7 +41,7 @@ module OrmTableTest =
       do! persons.Items
         |> Seq.toArray
         |> Array.choose (fun person ->
-          if (person :> IModel).IsLiveAt(db.CurrentRevisionId)
+          if person.IsLiveAt(db.CurrentRevisionId)
           then Some person.Name
           else None
           )
