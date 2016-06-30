@@ -129,11 +129,14 @@ module TableTest =
           |])
       do! persons2.Indexes.Length |> assertEquals 1
       let index       = persons2.Indexes.[0]
-      do! index.TryFind(storage.Store([| String "Miku" |])) |> assertEquals (Some 0L)
+      do! index.FindAll(storage.Store([| String "Miku" |])) |> Seq.toList |> assertEquals [0L]
       // Then remove Miku.
-      let _ =
-        persons2.Remove([| 0L |])
-      do! index.TryFind(storage.Store([| String "Miku"  |])) |> assertEquals None
+      do! persons2.Remove([| 0L |])
+        |> assertSatisfies (function | Pass () -> true | _ -> false)
+      // After removing Miku, we should be able to insert Miku again.
+      // Miku doesn't age, though.
+      do! persons2.Insert([| [| String "Miku"; Int 17L |] |])
+        |> assertSatisfies (function | Pass _ -> true | _ -> false)
       // Duplication error test. (With records already written.)
       let actual =
         persons2.Insert([| [| String "Yukari"; Int 99L |] |])

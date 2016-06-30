@@ -17,10 +17,14 @@ module HashTableTest =
         Removed
       ]
 
+  let hash x = x.GetHashCode() |> int64
+
+  let root () =
+    let serializer = HashTableElementSerializer<string, int>(FixedStringSerializer(), IntSerializer())
+    in StreamArray(new MemoryStreamSource([||]), serializer) :> IResizeArray<_>
+
   let empty () =
-    let serializer  = HashTableElementSerializer<string, int>(FixedStringSerializer(), IntSerializer())
-    let root        = StreamArray(new MemoryStreamSource([||]), serializer) :> IResizeArray<_>
-    in HashTable<string, int>(root)
+    HashTable<string, int>(hash, root ())
 
   let ``Insert and TryFind Test`` =
     test {
@@ -91,4 +95,52 @@ module HashTableTest =
     parameterize {
       source xs
       run body
+    }
+
+module MultiHashTableTest =
+  open HashTableDetail
+  open HashTableTest
+
+  let empty () =  
+    MultiHashTable<string, int>(hash, root ())
+
+  let seed () =
+    let mmap = empty ()
+    let () =
+      for (k, v) in xs do
+        mmap.Insert(k, v)
+    in mmap
+
+  let insertTest =
+    test {
+      let mmap = seed ()
+      return ()
+    }
+
+  let lengthTest =
+    test {
+      let mmap = seed ()
+      do! mmap.Length |> assertEquals 16L
+    }
+
+  let findAllTest =
+    test {
+      let mmap = seed ()
+      do! mmap.FindAll("9999") |> assertSatisfies Seq.isEmpty
+      do! mmap.FindAll("0001") |> Seq.toList |> assertEquals [1]
+    }
+
+  let duplicatedKeyTest =
+    test {
+      let mmap = seed ()
+      mmap.Insert("0001", -1)
+      do! mmap.FindAll("0001") |> Seq.toList |> assertEquals [1; -1]
+    }
+
+  let removeAllTest =
+    test {
+      let mmap = seed ()
+      mmap.Insert("0001", -1)
+      do! mmap.RemoveAll("0001") |> Seq.toList |> assertEquals [1; -1]
+      do! mmap.FindAll("0001") |> assertSatisfies Seq.isEmpty
     }
