@@ -34,7 +34,7 @@ Incidentally "partially" means you can't *branch* versions. *Partially persisten
 レコードやストレージから読み込みを行う際、それらのデータは不変であるため、ロックを必要としません。(Reading records or storage don't need lock because those data are immutable.)
 
 ### 自動単体テストとの親和性 (Affinity wiht automated unit tests)
-常磐DBでは、データベースをディレクトリー内だけでなくメモリ内にも生成できます。インメモリのデータベースはディスクベースのものより基本的に高速なので、自動単体テストに役立ちます。
+常磐DBでは、データベースをディレクトリー内だけでなくメモリー内にも生成できます。インメモリーのデータベースはディスクベースのものより基本的に高速なので、自動単体テストに役立ちます。
 
 (Tokiwa DB can create a database not only in a directory but also in memory. In-memory databases are useful for automated unit tests because they are usually faster than disk-based ones.)
 
