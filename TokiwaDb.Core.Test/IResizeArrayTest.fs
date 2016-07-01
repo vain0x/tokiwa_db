@@ -31,14 +31,14 @@ module StreamArrayTest =
         xs.Set(0L, "0th.")
         xs.Set(1L, "1st.")
         )
-      do! xs |> Seq.toList |> assertEquals ["0th."; "1st."]
+      do! xs |> assertSeqEquals ["0th."; "1st."]
     }
 
   let toSeqTest (xs: IResizeArray<string>) =
     test {
       let ()      = xs.Set(0L, "0th.")
       let ()      = xs.Set(1L, "1st.")
-      do! xs |> Seq.toList |> assertEquals ["0th."; "1st."]
+      do! xs |> assertSeqEquals ["0th."; "1st."]
     }
 
   let arrayTest xs =

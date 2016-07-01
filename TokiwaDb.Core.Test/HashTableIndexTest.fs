@@ -25,6 +25,6 @@ module HashTableIndexTest =
   let ``Insert and FindAll Test`` =
     test {
       let hti = hashTableIndex ()
-      do! hti.FindAll([| PInt 3L; PInt 2L |]) |> Seq.toList |> assertEquals [1L]
-      do! hti.FindAll([| PInt 4L; PInt 0L |]) |> Seq.toList |> assertEquals []
+      do! hti.FindAll([| PInt 3L; PInt 2L |]) |> assertSeqEquals [1L]
+      do! hti.FindAll([| PInt 4L; PInt 0L |]) |> assertSeqEquals []
     }

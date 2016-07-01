@@ -14,3 +14,6 @@ module Persimmon =
     if pred x
     then pass ()
     else fail (sprintf "%A should satisfiy an expected property but didn't." x)
+
+  let assertSeqEquals expected xs =
+    (xs |> Seq.toList) |> assertEquals (expected |> Seq.toList)

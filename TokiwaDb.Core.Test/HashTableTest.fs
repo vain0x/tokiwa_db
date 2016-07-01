@@ -127,20 +127,20 @@ module MultiHashTableTest =
     test {
       let mmap = seed ()
       do! mmap.FindAll("9999") |> assertSatisfies Seq.isEmpty
-      do! mmap.FindAll("0001") |> Seq.toList |> assertEquals [1]
+      do! mmap.FindAll("0001") |> assertSeqEquals [1]
     }
 
   let duplicatedKeyTest =
     test {
       let mmap = seed ()
       mmap.Insert("0001", -1)
-      do! mmap.FindAll("0001") |> Seq.toList |> assertEquals [1; -1]
+      do! mmap.FindAll("0001") |> assertSeqEquals [1; -1]
     }
 
   let removeAllTest =
     test {
       let mmap = seed ()
       mmap.Insert("0001", -1)
-      do! mmap.RemoveAll("0001") |> Seq.toList |> assertEquals [1; -1]
+      do! mmap.RemoveAll("0001") |> assertSeqEquals [1; -1]
       do! mmap.FindAll("0001") |> assertSatisfies Seq.isEmpty
     }

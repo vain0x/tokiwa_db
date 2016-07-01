@@ -129,7 +129,7 @@ module TableTest =
           |])
       do! persons2.Indexes.Length |> assertEquals 1
       let index       = persons2.Indexes.[0]
-      do! index.FindAll(storage.Store([| String "Miku" |])) |> Seq.toList |> assertEquals [0L]
+      do! index.FindAll(storage.Store([| String "Miku" |])) |> assertSeqEquals [0L]
       // Then remove Miku.
       do! persons2.Remove([| 0L |])
         |> assertSatisfies (function | Pass () -> true | _ -> false)
