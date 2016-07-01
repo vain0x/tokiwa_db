@@ -13,12 +13,11 @@
 Incidentally "partially" means you can't *branch* versions. *Partially persistent* database is similar to Git without branches.)
 
 ## 利点 (Advantages)
-### 論理削除の容易さ (Easy logical deletion)
+#### 論理削除の容易さ (Easy logical deletion)
 常磐DBに物理削除はありません。削除されるレコードは、単に「そのリビジョンにおいて削除された」という印がつけられるだけです。
 
 (There's no hard deletion in Tokiwa DB. Removed records are just marked as removed at that revision.)
 
-### 効率 (Efficiency)
 #### 自然なID(Natural IDs)
 テーブルからレコードが「削除」されることはないので、それらは常にID順で格納されます。言い換えると、テーブルはレコードの配列だということです。そのため、
 
@@ -33,12 +32,12 @@ Incidentally "partially" means you can't *branch* versions. *Partially persisten
 #### ロック不要の読み込み(No Locks for Read)
 レコードやストレージから読み込みを行う際、それらのデータは不変であるため、ロックを必要としません。(Reading records or storage don't need lock because those data are immutable.)
 
-### 自動単体テストとの親和性 (Affinity wiht automated unit tests)
+#### 自動単体テストとの親和性 (Affinity wiht automated unit tests)
 常磐DBでは、データベースをディレクトリー内だけでなくメモリー内にも生成できます。インメモリーのデータベースはディスクベースのものより基本的に高速なので、自動単体テストに役立ちます。
 
 (Tokiwa DB can create a database not only in a directory but also in memory. In-memory databases are useful for automated unit tests because they are usually faster than disk-based ones.)
 
-### コードファースト(Code-First)
+#### コードファースト(Code-First)
 常磐DBは「コードファースト」という便利な機能に対応しています。すなわち、C# や F# などの言語でコードを書くだけで、データベースの生成と構成を行うことが可能です。(Tokiwa DB supports useful *code-first* approach. That is, you can create and configure databases just by writing C#/F# code.)
 
 ## 使いかた (Usage)
