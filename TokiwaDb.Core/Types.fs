@@ -168,6 +168,12 @@ module Types =
     abstract member CurrentRevisionId: RevisionId
     abstract member Transaction: Transaction
 
+    abstract member Dispose: unit -> unit
+    default this.Dispose() = ()
+
+    interface IDisposable with
+      override this.Dispose() = this.Dispose()
+
   and [<AbstractClass>] ImplDatabase() =
     inherit BaseDatabase()
 

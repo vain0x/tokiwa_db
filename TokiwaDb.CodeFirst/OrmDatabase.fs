@@ -43,6 +43,9 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
         | None -> ()
     } |> dict
 
+  override this.Dispose() =
+    _impl.Dispose()
+
   override this.Name =
     _impl.Name
 

@@ -25,7 +25,7 @@ module OrmDatabaseTest =
       (typeof<Song>, TableSchema.ofModel<Song> ())
     ]
 
-  let testDb () = OrmDatabase(new MemoryDatabase("test_db"), schemas)
+  let testDb () = new OrmDatabase(new MemoryDatabase("test_db"), schemas)
 
   let createTest =
     test {
@@ -44,14 +44,19 @@ module OrmDatabaseTest =
   let reopenTest =
     test {
       let implDb = new MemoryDatabase("test_db")
-      let db = OrmDatabase(implDb, schemas)
-      db.Table<Person>().Insert(Person(Name = "Miku", Age = 16L))
+      do! test {
+        use db = new OrmDatabase(implDb, schemas)
+        db.Table<Person>().Insert(Person(Name = "Miku", Age = 16L))
+        return ()
+      }
       // We can reopen the database with the same models.
-      let db = OrmDatabase(implDb, schemas)
-      do! (db.Table<Person>()).CountAllRecords |> assertEquals 1L
+      do! test {
+        use db = new OrmDatabase(implDb, schemas)
+        do! (db.Table<Person>()).CountAllRecords |> assertEquals 1L
+      }
       // Opening with different models, all tables are dropped.
       let anotherSchemas = [schemas |> List.head]
-      let db = OrmDatabase(implDb, anotherSchemas)
+      use db = new OrmDatabase(implDb, anotherSchemas)
       do! (db.Table<Person>()).CountAllRecords |> assertEquals 0L
       let! _ = trap { it (db.Table<Song>()) }
       return ()
