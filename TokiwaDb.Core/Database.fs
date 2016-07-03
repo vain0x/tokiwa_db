@@ -92,16 +92,11 @@ type RepositoryDatabase(_repo: Repository) as this =
       | DropTable (tableId) ->
         _tables.[int tableId].PerformDrop()
 
-  let mutable _isDisposed = false
+  let _disposable =
+    new RelayDisposable(_saveConfig) :> IDisposable
 
-  let _dispose () =
-    if not _isDisposed then
-      _isDisposed <- true
-      _saveConfig ()
-
-  interface IDisposable with
-    override this.Dispose() =
-      _dispose ()
+  override this.Dispose() =
+    _disposable.Dispose()
 
   override this.Name =
     _repo.Name

@@ -68,6 +68,22 @@ module Seq =
     then true
     else xs |> Seq.skip 1 |> Seq.forall ((=) (xs |> Seq.head))
 
+[<AutoOpen>]
+module DisposableExtensions =
+  open System
+
+  type RelayDisposable(_dispose: unit -> unit) =
+    let mutable _isDisposed = false
+
+    interface IDisposable with
+      override this.Dispose() =
+        if not _isDisposed then
+          _isDisposed <- true
+          _dispose ()
+
+    override this.Finalize() =
+      (this :> IDisposable).Dispose()
+
 module Stream =
   open System
   open System.IO
