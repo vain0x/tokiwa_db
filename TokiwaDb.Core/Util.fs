@@ -94,18 +94,23 @@ module Stream =
     let _         = stream.Read(buffer, 0, buffer.Length)
     in UTF8Encoding.UTF8.GetString(buffer)
 
+  let readBytes count (stream: Stream) =
+    let buffer    = Array.zeroCreate count
+    let _         = stream.Read(buffer, 0, count)
+    in buffer
+
+  let writeBytes data (stream: Stream) =
+    stream.Write(data, 0, data.Length)
+
   let writeString (s:string) (stream: Stream) =
     let buffer    = UTF8Encoding.UTF8.GetBytes(s)
     in stream.Write(buffer, 0, buffer.Length)
 
   let readInt64 (stream: Stream) =
-    let bytes = Array.zeroCreate 8
-    let _ = stream.Read(bytes, 0, bytes.Length)
-    in BitConverter.ToInt64(bytes, 0)
+    BitConverter.ToInt64(stream |> readBytes 8, 0)
 
   let writeInt64 (n: int64) (stream: Stream) =
-    let bytes = BitConverter.GetBytes(n)
-    in stream.Write(bytes, 0, bytes.Length)
+    stream |> writeBytes (BitConverter.GetBytes(n))
 
 module FileInfo =
   open System.IO

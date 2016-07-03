@@ -63,6 +63,7 @@
     <Compile Include="Util.fs" />
     <Compile Include="StreamSource.fs" />
     <Compile Include="Repository.fs" />
+    <Compile Include="FsSerialize.fs" />
     <Compile Include="Serializer.fs" />
     <Compile Include="IResizeArray.fs" />
     <Compile Include="HashTable.fs" />
