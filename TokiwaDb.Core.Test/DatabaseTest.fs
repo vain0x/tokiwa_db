@@ -6,38 +6,32 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 
-module Field =
-  let str name =
-    Field (name, TString)
-
-  let int name =
-    Field (name, TInt)
-
 module DatabaseTest =
-  let repo    = DirectoryInfo(@"__unit_test_db")
+  let dbDir       = DirectoryInfo(@"__unit_test_db")
+
+  if dbDir.Exists then
+    dbDir.Delete((* recusive =*) true)
+
   let mutable savedRevision = 0L
   let insertedRow = [| String "Miku"; Int 16L|]
 
-  if repo.Exists then
-    repo.Delete((* recusive =*) true)
-
   let createTest =
     test {
-      use db      = new DirectoryDatabase(repo)
-      let rev     = db.RevisionServer
+      use db      = new DirectoryDatabase(dbDir)
+      let rev     = db.ImplTransaction.RevisionServer
 
       let persons =
         let schema =
-          {
-            KeyFields = Id
-            NonkeyFields = [| Field.str "name"; Field.int "age" |]
+          { TableSchema.empty "persons" with
+              Fields = [| Field.string "name"; Field.int "age" |]
+              Indexes = [| HashTableIndexSchema [| 1 |] |]
           }
-        in db.CreateTable("persons", schema)
+        in db.CreateTable(schema)
 
-      let actual = db.Tables(rev.Current) |> Seq.map (fun table -> table.Name) |> Seq.toList
+      let actual = db.ImplTables |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals [persons.Name]
 
-      do persons.Insert(insertedRow)
+      let _ = persons.Insert([| insertedRow |])
 
       savedRevision <- rev.Current
       return ()
@@ -45,12 +39,11 @@ module DatabaseTest =
 
   let reopenTest =
     test {
-      use db      = new DirectoryDatabase(repo)
-      let rev     = db.RevisionServer
+      use db      = new DirectoryDatabase(dbDir)
       /// Revision number should be saved.
-      do! rev.Current |> assertEquals savedRevision
+      do! db.CurrentRevisionId |> assertEquals savedRevision
       /// Tables should be loaded.
-      let tables  = db.Tables(savedRevision)
+      let tables  = db.ImplTables |> Seq.filter (Mortal.isAliveAt savedRevision)
       let actual  = tables |> Seq.map (fun table -> table.Name) |> Seq.toList
       do! actual |> assertEquals ["persons"]
       /// Inserted rows should be saved.

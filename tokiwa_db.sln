@@ -1,11 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.40629.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TokiwaDb.Core", "TokiwaDb.Core\TokiwaDb.Core.fsproj", "{92728C7A-7754-4FEA-AE93-6DA2904C8DFB}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TokiwaDb.Core.Test", "TokiwaDb.Core.Test\TokiwaDb.Core.Test.fsproj", "{538AA57B-113F-44F8-97B4-F564C524BFFC}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TokiwaDb.CodeFirst", "TokiwaDb.CodeFirst\TokiwaDb.CodeFirst.fsproj", "{0C049280-D786-4685-803E-27CBB8D165F0}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TokiwaDb.CodeFirst.Test", "TokiwaDb.CodeFirst.Test\TokiwaDb.CodeFirst.Test.fsproj", "{195CAE87-8C42-4A8A-ABB0-FA4B04B7C3DA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{454CF9CC-3F20-4B55-A199-A5F3547FC841}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TokiwaDb.CodeFirst.Sample.CSharp", "TokiwaDb.CodeFirst.Sample.CSharp\TokiwaDb.CodeFirst.Sample.CSharp.csproj", "{DF747484-0DC3-47CE-B1C0-237D347DF102}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,8 +29,23 @@ Global
 		{538AA57B-113F-44F8-97B4-F564C524BFFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{538AA57B-113F-44F8-97B4-F564C524BFFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{538AA57B-113F-44F8-97B4-F564C524BFFC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C049280-D786-4685-803E-27CBB8D165F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C049280-D786-4685-803E-27CBB8D165F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C049280-D786-4685-803E-27CBB8D165F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C049280-D786-4685-803E-27CBB8D165F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{195CAE87-8C42-4A8A-ABB0-FA4B04B7C3DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{195CAE87-8C42-4A8A-ABB0-FA4B04B7C3DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{195CAE87-8C42-4A8A-ABB0-FA4B04B7C3DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{195CAE87-8C42-4A8A-ABB0-FA4B04B7C3DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DF747484-0DC3-47CE-B1C0-237D347DF102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF747484-0DC3-47CE-B1C0-237D347DF102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF747484-0DC3-47CE-B1C0-237D347DF102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF747484-0DC3-47CE-B1C0-237D347DF102}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DF747484-0DC3-47CE-B1C0-237D347DF102} = {454CF9CC-3F20-4B55-A199-A5F3547FC841}
 	EndGlobalSection
 EndGlobal

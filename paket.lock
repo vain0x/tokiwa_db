@@ -8,3 +8,7 @@ NUGET
     Persimmon (1.1)
     Persimmon.Console (1.1)
     YamlDotNet (3.9)
+GITHUB
+  remote: fsprojects/Chessie
+  specs:
+    src/Chessie/ErrorHandling.fs (e5d82ce2c5a88be3762fbcfbe6a58102b02eb8a6)

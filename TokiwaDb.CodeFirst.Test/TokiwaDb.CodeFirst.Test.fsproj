@@ -5,13 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>538aa57b-113f-44f8-97b4-f564c524bffc</ProjectGuid>
+    <ProjectGuid>195cae87-8c42-4a8a-abb0-fa4b04b7c3da</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>TokiwaDb.Core.Test</RootNamespace>
-    <AssemblyName>TokiwaDb.Core.Test</AssemblyName>
+    <RootNamespace>TokiwaDb.CodeFirst.Test</RootNamespace>
+    <AssemblyName>TokiwaDb.CodeFirst.Test</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>TokiwaDb.Core.Test</Name>
+    <Name>TokiwaDb.CodeFirst.Test</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\TokiwaDb.Core.Test.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\TokiwaDb.CodeFirst.Test.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +30,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\TokiwaDb.Core.Test.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\TokiwaDb.CodeFirst.Test.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -42,6 +42,16 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TokiwaDb.CodeFirst\TokiwaDb.CodeFirst.fsproj">
+      <Name>TokiwaDb.CodeFirst</Name>
+      <Project>{0c049280-d786-4685-803e-27cbb8d165f0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\TokiwaDb.Core.Test\TokiwaDb.Core.Test.fsproj">
+      <Name>TokiwaDb.Core.Test</Name>
+      <Project>{538aa57b-113f-44f8-97b4-f564c524bffc}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\TokiwaDb.Core\TokiwaDb.Core.fsproj">
       <Name>TokiwaDb.Core</Name>
       <Project>{92728c7a-7754-4fea-ae93-6da2904c8dfb}</Project>
@@ -49,19 +59,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
-    <Compile Include="UtilTest.fs" />
-    <Compile Include="Serializer.fs" />
-    <Compile Include="StreamSourceTest.fs" />
-    <Compile Include="RepositoryTest.fs" />
-    <Compile Include="IResizeArrayTest.fs" />
-    <Compile Include="HashTableTest.fs" />
-    <Compile Include="FuncsTest.fs" />
-    <Compile Include="StorageTest.fs" />
-    <Compile Include="RelationTest.fs" />
-    <Compile Include="HashTableIndexTest.fs" />
-    <Compile Include="TableTest.fs" />
-    <Compile Include="DatabaseTest.fs" />
+    <Compile Include="ModelTest.fs" />
+    <Compile Include="TableSchemaTest.fs" />
+    <Compile Include="OrmDatabaseTest.fs" />
+    <Compile Include="OrmTableTest.fs" />
+    <Compile Include="DbConfigTest.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

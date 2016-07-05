@@ -32,25 +32,6 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\TokiwaDb.Core.XML</DocumentationFile>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Util.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="Funcs.fs" />
-    <Compile Include="StreamSource.fs" />
-    <Compile Include="Storage.fs" />
-    <Compile Include="Relation.fs" />
-    <Compile Include="Table.fs" />
-    <Compile Include="Database.fs" />
-  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -74,6 +55,35 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Compile Include="..\paket-files\fsprojects\Chessie\src\Chessie\ErrorHandling.fs">
+      <Paket>True</Paket>
+      <Link>ErrorHandling.fs</Link>
+    </Compile>
+    <Compile Include="Util.fs" />
+    <Compile Include="StreamSource.fs" />
+    <Compile Include="Repository.fs" />
+    <Compile Include="Serializer.fs" />
+    <Compile Include="IResizeArray.fs" />
+    <Compile Include="HashTable.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Funcs.fs" />
+    <Compile Include="Storage.fs" />
+    <Compile Include="Relation.fs" />
+    <Compile Include="HashTableIndex.fs" />
+    <Compile Include="Table.fs" />
+    <Compile Include="Transaction.fs" />
+    <Compile Include="Database.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2')">
       <ItemGroup>

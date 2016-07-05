@@ -1,10 +1,19 @@
 ﻿namespace TokiwaDb.Core.Test
 
-open Persimmon
-open Persimmon.Syntax.UseTestNameByReflection
-
+[<AutoOpen>]
 module Persimmon =
+  open Persimmon
+  open Persimmon.Syntax.UseTestNameByReflection
+
   let testFun f (x, expected) =
     test {
       do! f x |> assertEquals expected
     }
+
+  let assertSatisfies pred x =
+    if pred x
+    then pass ()
+    else fail (sprintf "%A should satisfiy an expected property but didn't." x)
+
+  let assertSeqEquals expected xs =
+    (xs |> Seq.toList) |> assertEquals (expected |> Seq.toList)
