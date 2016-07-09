@@ -384,17 +384,31 @@ module TypeDefinitions =
 module Public =
   open TypeDefinitions
 
+  let serializedLengthWith<'x> customDefinitions =
+    let definitions = List.append customDefinitions primitiveDefinitions
+    in Primitives.length definitions typeof<'x>
+
   let serializedLength<'x> () =
-    Primitives.length primitiveDefinitions typeof<'x>
+    serializedLengthWith<'x> []
 
   module Stream =
     open TypeDefinitions
 
-    let serialize<'x> (x: 'x) stream: unit =
-      Primitives.serialize primitiveDefinitions stream typeof<'x> x
+    let serializeWith<'x> customDefinitions =
+      let definitions = List.append customDefinitions primitiveDefinitions
+      fun (x: 'x) stream ->
+        Primitives.serialize definitions stream typeof<'x> x
+
+    let serialize<'x> x =
+      serializeWith<'x> [] x
+
+    let deserializeWith<'x> customDefinitions =
+      let definitions = List.append customDefinitions primitiveDefinitions
+      fun stream ->
+        (Primitives.deserialize definitions stream typeof<'x>) :?> 'x
 
     let deserialize<'x> stream =
-      (Primitives.deserialize primitiveDefinitions stream typeof<'x>) :?> 'x
+      deserializeWith<'x> [] stream
 
   module ByteArray =
     let serialize<'x> (x: 'x): array<byte> =

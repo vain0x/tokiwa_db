@@ -6,7 +6,23 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 open TokiwaDb.Core.FsSerialize
-open TokiwaDb.Core.FsSerialize.Public
+
+[<AutoOpen>]
+module CustomPublic =
+  open TokiwaDb.Core.FsSerialize.Public
+
+  let customDefinitions =
+    []
+
+  let serializedLength<'x> () =
+    serializedLengthWith<'x> customDefinitions
+
+  module Stream =
+    let serialize<'x> x stream =
+      stream |> Stream.serializeWith<'x> customDefinitions x
+
+    let deserialize<'x> stream =
+      stream |> Stream.deserializeWith<'x> customDefinitions
 
 module FsSerializeTest =
   let randomStream =
