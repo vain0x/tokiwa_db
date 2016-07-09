@@ -3,7 +3,6 @@
 open System
 open System.IO
 open System.Threading
-open FsYaml
 
 module Mortal =
   let maxLifeSpan =

@@ -3,13 +3,14 @@
 open System
 open System.IO
 open Chessie.ErrorHandling
+open TokiwaDb.Core.FsSerialize.Public
 
 type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
   inherit ImplTable()
 
   let mutable _schema =
-    (_repo.TryFind(".schema") |> Option.get).ReadString()
-    |> FsYaml.customLoad<TableSchema>
+    use stream  = (_repo.TryFind(".schema") |> Option.get).OpenRead()
+    in stream |> Stream.deserialize<TableSchema>
 
   let _indexes =
     _schema.Indexes |> Array.mapi (fun i indexSchema ->
@@ -236,7 +237,10 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
       _schema <- { _schema with LifeSpan = _schema.LifeSpan |> MortalValue.kill revisionId }
     let ()              =
       (_repo.TryFind(".schema") |> Option.get)
-        .WriteString(_schema |> FsYaml.customDump)
+        .WriteAll(fun streamSource ->
+          use stream    = streamSource.OpenReadWrite()
+          in stream |> Stream.serialize<TableSchema> _schema |> ignore
+          )
     in ()
 
   let _drop () =
@@ -254,7 +258,11 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.beBorn revisionId }
     /// Create schema file.
     let schemaSource    = repo.Add(".schema")
-    let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)
+    let ()              =
+      schemaSource.WriteAll(fun streamSource ->
+        use stream      = streamSource.OpenReadWrite()
+        in stream |> Stream.serialize<TableSchema> schema |> ignore
+        )
     /// Create index files.
     let indexes         =
       schema.Indexes |> Array.mapi (fun i indexSchema ->
