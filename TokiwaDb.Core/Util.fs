@@ -16,6 +16,14 @@ module Option =
     | (true, x) -> Some x
     | (false, _) -> None
 
+  let sequence os =
+    os |> Seq.fold (fun state opt ->
+      match (state, opt) with
+      | (Some xs, Some x) -> (Some (x :: xs))
+      | _ -> None
+      ) (Some [])
+    |> Option.map List.rev
+
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
 

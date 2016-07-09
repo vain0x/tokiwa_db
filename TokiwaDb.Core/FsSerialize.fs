@@ -8,6 +8,12 @@ open System.Text
 open Microsoft.FSharp.Reflection
 open TokiwaDb.Core
 
+module FSharpValue =
+  module Function =
+    let ofClosure sourceType rangeType f =
+      let mappingFunctionType = typedefof<_ -> _>.MakeGenericType([| sourceType; rangeType |])
+      in FSharpValue.MakeFunction(mappingFunctionType, fun x -> f x :> obj)
+
 module ObjectElementSeq =
   open System
   open System.Linq
@@ -39,26 +45,33 @@ module RuntimeSeq =
     else
       t.GetGenericArguments().[0]
 
-  let length (t: Type) (xs: obj): int =
-    let elementType = elementType t
-    let lengthFunc = seqModule.GetMethod("Length").MakeGenericMethod(elementType)
-    lengthFunc.Invoke(null, [| xs |]) :?> int
+  let invokeMethod name seqType typeArgs args =
+    seqModule
+      .GetMethod(name)
+      .MakeGenericMethod(Array.append [| elementType seqType |] typeArgs)
+      .Invoke(null, args)
 
-  let map (f: obj -> 'a) (t: Type) (xs: obj): 'a seq =
-    let elementType = elementType t
+  let length (seqType: Type) (xs: obj) =
+    invokeMethod "Length" seqType [||] [| xs |] :?> int
+
+  let iter (f: obj -> unit) (seqType: Type) (xs: obj) =
     let mapping =
-      let mappingFunctionType = typedefof<_ -> _>.MakeGenericType([| elementType; typeof<'a> |])
-      FSharpValue.MakeFunction(mappingFunctionType, fun x -> f x :> obj)
-    let mapFunc = seqModule.GetMethod("Map").MakeGenericMethod(elementType, typeof<'a>)
-    mapFunc.Invoke(null, [| mapping; xs |]) :?> seq<'a>
+      f |> FSharpValue.Function.ofClosure (elementType seqType) typeof<unit>
+    in
+      invokeMethod "Iterate" seqType [||] [| mapping; xs |] :?> unit
 
 [<AutoOpen>]
 module Types =
+  [<RequireQualifiedAccess>]
+  type Length =
+    | Flex
+    | Fixed of int64
+
   type LengthCalculator =
-    Type -> int64
+    Type -> Length
 
   type Serializer =
-    Stream -> Type -> obj-> int64
+    Stream -> Type -> obj-> unit
 
   type Deserializer =
     Stream -> Type -> obj
@@ -80,6 +93,27 @@ module Types =
       Serialize         : LengthCalculator -> Recursive<Serializer>
       Deserialize       : LengthCalculator -> Recursive<Deserializer>
     }
+
+module Length =
+  let ofOption =
+    function
+    | None                -> Length.Flex
+    | Some length         -> Length.Fixed length
+
+  let toOption =
+    function
+    | Length.Flex         -> None
+    | Length.Fixed length -> Some length
+
+  let mapSeq f lengths =
+    lengths
+    |> Seq.map toOption
+    |> Option.sequence
+    |> Option.map f
+    |> ofOption
+
+  let sum lengths = mapSeq Seq.sum lengths
+  let max lengths = mapSeq Seq.max lengths
 
 module Primitives =
   let rec length definitions type' =
@@ -108,25 +142,21 @@ module Primitives =
 module TypeDefinitions =
   module Custom =
     let serializeSeq _ serialize' stream seqType (value: obj) =
-      let elementType     = seqType |> RuntimeSeq.elementType
-      let length          = value |> RuntimeSeq.length seqType |> int64
-      let _               = stream |> Stream.writeInt64 length
-      in
-        value
-        |> RuntimeSeq.map (serialize' stream elementType) seqType
-        |> Seq.sum
-        |> (+) 8L // the size of length value
+      let elementType   = seqType |> RuntimeSeq.elementType
+      let length        = value |> RuntimeSeq.length seqType |> int64
+      let ()            = stream |> Stream.writeInt64 length
+      let ()            = value |> RuntimeSeq.iter (serialize' stream elementType) seqType
+      in ()
 
     let scalarTypeDefinition<'x> length serialize (deserialize: array<byte> -> 'x) =
       {
-        Accept            = (=) typeof<'x>
-        Serialize         = fun _ _ stream _ value ->
-          let () = stream |> Stream.writeBytes (value :?> 'x |> serialize)
-          in length |> int64
-        Deserialize       = fun _ _ stream _ ->
+        Accept          = (=) typeof<'x>
+        Serialize       = fun _ _ stream _ value ->
+          stream |> Stream.writeBytes (value :?> 'x |> serialize)
+        Deserialize     = fun _ _ stream _ ->
           (stream |> Stream.readBytes length |> deserialize) :> obj
-        Length            = fun _ _ ->
-          length |> int64
+        Length          = fun _ _ ->
+          length |> int64 |> Length.Fixed
       }
 
   open Custom
@@ -134,8 +164,8 @@ module TypeDefinitions =
   let unitTypeDefinition =
     {
       Accept            = (=) typeof<unit>
-      Length            = fun _ _ -> 0L
-      Serialize         = fun _ _ _ _ _ -> 0L
+      Length            = fun _ _ -> Length.Fixed 0L
+      Serialize         = fun _ _ _ _ _ -> ()
       Deserialize       = fun _ _ _ _ -> () :> obj
     }
 
@@ -166,30 +196,42 @@ module TypeDefinitions =
   let stringTypeDefinition =
     {
       Accept            = (=) typeof<string>
-      Length            = fun _ _ -> failwith "Not fixed length: string."
+      Length            = fun _ _ -> Length.Flex
       Serialize         = fun _ _ stream _ value ->
         let value       = value :?> string
         let data        = UTF8Encoding.UTF8.GetBytes(value)
         let _           = stream |> Stream.writeInt64 data.LongLength
         let ()          = stream |> Stream.writeBytes data
-        in 8L + data.LongLength
+        in ()
       Deserialize       = fun _ _ stream _ ->
         let length      = stream |> Stream.readInt64 |> int
         let data        = stream |> Stream.readBytes length
         in UTF8Encoding.UTF8.GetString(data) :> obj
     }
 
+  let arrayTypeDefinition =
+    {
+      Accept            = fun type' -> type'.IsArray
+      Length            = fun _ _ -> Length.Flex
+      Serialize         = serializeSeq
+      Deserialize       = fun _ deserialize' stream arrayType ->
+        let elementType = arrayType.GetElementType()
+        let length      = stream |> Stream.readInt64
+        let values      = [| for i in 0L..(length - 1L) -> deserialize' stream elementType |]
+        in ObjectElementSeq.toArray elementType values
+    }
+
   module Tuple =
-    let length (length': Type -> int64) type' =
+    let length (length': LengthCalculator) type' =
       FSharpType.GetTupleElements(type')
-      |> Array.sumBy length'
+      |> Array.map length'
+      |> Length.sum
 
     let serialize _ (serialize': Serializer) stream tupleType value =
       let types         = FSharpType.GetTupleElements(tupleType)
       let values        = FSharpValue.GetTupleFields(value)
-      in
-        Seq.zip types values
-        |> Seq.sumBy (fun (type', value) -> serialize' stream type' value)
+      for (type', value) in Seq.zip types values do
+        serialize' stream type' value
 
     let deserialize _ (deserialize': Deserializer) stream tupleType =
       let values =
@@ -210,58 +252,69 @@ module TypeDefinitions =
   module Union =
     let length (length': LengthCalculator) unionType =
       let lengthCase (case: UnionCaseInfo) =
-        case.GetFields()
-        |> Array.sumBy (fun pi -> length' pi.PropertyType)
-        |> (+) 1L // for tag
+        seq {
+          yield Length.Fixed 1L // for tag
+          for pi in case.GetFields() do
+            yield length' pi.PropertyType
+        } |> Length.sum
       in
         FSharpType.GetUnionCases(unionType)
         |> Array.map lengthCase
-        |> Array.max
+        |> Length.max
+
+    let serializeBody serialize' stream (types: array<Type>) (values: array<obj>) =
+      match types.Length with
+      | 0 -> ()
+      | 1 ->
+        let type'               = types.[0]
+        let value               = values.[0]
+        in serialize' stream type' value
+      | _ ->
+        let tupleType           = FSharpType.MakeTupleType(types)
+        let tupleValue          = FSharpValue.MakeTuple(values, tupleType)
+        in serialize' stream tupleType tupleValue
+
+    let serializeTailpad (stream: Stream) initialPosition totalLength =
+      match totalLength with
+      | Length.Flex -> ()
+      | Length.Fixed totalLength ->
+        let endPosition         = initialPosition + totalLength
+        let footerLength        = endPosition - stream.Position
+        stream |> Stream.writeBytes (footerLength |> int |> Array.zeroCreate)
 
     let serialize length' (serialize': Serializer) (stream: Stream) unionType value =
+      let initialPosition       = stream.Position
       let (case, values)        = FSharpValue.GetUnionFields(value, unionType)
       let types                 = case.GetFields() |> Array.map (fun pi -> pi.PropertyType)
       let tag                   = case.Tag |> byte
-      // Header
-      let headerLength          = 1L
       stream.WriteByte(tag)
-      // Body
-      let bodyLength =
-        match types.Length with
-        | 0 -> 0L
-        | 1 ->
-          let type'             = types.[0]
-          let value             = values.[0]
-          in serialize' stream type' value
-        | _ ->
-          let tupleType         = FSharpType.MakeTupleType(types)
-          let tupleValue        = FSharpValue.MakeTuple(values, tupleType)
-          in serialize' stream tupleType tupleValue
-      // Tailpad
-      let totalLength           = length' unionType
-      let footerLength          = totalLength - (headerLength + bodyLength)
-      stream |> Stream.writeBytes (footerLength |> int |> Array.zeroCreate)
-      totalLength
+      serializeBody serialize' stream types values
+      serializeTailpad stream initialPosition (length' unionType)
+
+    let deserializeBody deserialize' stream (types: array<Type>) =
+      match types.Length with
+      | 0 -> [||]
+      | 1 -> [| deserialize' stream types.[0] |]
+      | _ ->
+        let tupleType           = FSharpType.MakeTupleType(types)
+        let tupleValue          = deserialize' stream tupleType
+        in FSharpValue.GetTupleFields(tupleValue)
+
+    let skipFooter (stream: Stream) initialPosition totalLength =
+      match totalLength with
+      | Length.Flex -> ()
+      | Length.Fixed totalLength ->
+        stream.Seek(initialPosition + totalLength, SeekOrigin.Begin) |> ignore
 
     let deserialize length' (deserialize': Deserializer) (stream: Stream) unionType =
       let initialPosition       = stream.Position
-      let headerLength          = 1L
       let tag                   = stream.ReadByte()
       let case                  = (FSharpType.GetUnionCases(unionType)).[tag]
       let types                 = case.GetFields() |> Array.map (fun pi -> pi.PropertyType)
-      let values                =
-        match types.Length with
-        | 0 -> [||]
-        | 1 -> [| deserialize' stream types.[0] |]
-        | _ ->
-          let tupleType         = FSharpType.MakeTupleType(types)
-          let tupleValue        = deserialize' stream tupleType
-          in FSharpValue.GetTupleFields(tupleValue)
-      let resultValue           =
-        FSharpValue.MakeUnion(case, values)
-      let totalLength           = length' unionType
-      stream.Seek(initialPosition + totalLength, SeekOrigin.Begin) |> ignore
-      resultValue
+      let values                = deserializeBody deserialize' stream types
+      let value                 = FSharpValue.MakeUnion(case, values)
+      skipFooter stream initialPosition (length' unionType)
+      value
 
     let definition =
       {
@@ -293,7 +346,8 @@ module TypeDefinitions =
 
     let length (length': LengthCalculator) recordType =
       FSharpType.GetRecordFields(recordType)
-      |> Array.sumBy (fun pi -> length' pi.PropertyType)
+      |> Array.map (fun pi -> length' pi.PropertyType)
+      |> Length.sum
 
     let serialize _ serialize' stream recordType value =
       let tupleType     = toTupleType recordType
@@ -313,18 +367,6 @@ module TypeDefinitions =
         Deserialize     = deserialize
       }
 
-  let arrayTypeDefinition =
-    {
-      Accept            = fun type' -> type'.IsArray
-      Length            = fun _ _ -> failwith "Not fixed length: array<_>."
-      Serialize         = serializeSeq
-      Deserialize       = fun _ deserialize' stream arrayType ->
-        let elementType = arrayType.GetElementType()
-        let length      = stream |> Stream.readInt64
-        let values      = [| for i in 0L..(length - 1L) -> deserialize' stream elementType |]
-        in ObjectElementSeq.toArray elementType values
-    }
-
   let primitiveDefinitions =
     [
       unitTypeDefinition
@@ -333,20 +375,34 @@ module TypeDefinitions =
       floatTypeDefinition
       dateTimeTypeDefinition
       stringTypeDefinition
+      arrayTypeDefinition
       Tuple.definition
       Union.definition
       Record.definition
-      arrayTypeDefinition
     ]
 
-module Stream =
+module Public =
   open TypeDefinitions
 
   let serializedLength<'x> () =
     Primitives.length primitiveDefinitions typeof<'x>
 
-  let serialize<'x> (x: 'x) stream =
-    Primitives.serialize primitiveDefinitions stream typeof<'x> x
+  module Stream =
+    open TypeDefinitions
 
-  let deserialize<'x> stream =
-    (Primitives.deserialize primitiveDefinitions stream typeof<'x>) :?> 'x
+    let serialize<'x> (x: 'x) stream: unit =
+      Primitives.serialize primitiveDefinitions stream typeof<'x> x
+
+    let deserialize<'x> stream =
+      (Primitives.deserialize primitiveDefinitions stream typeof<'x>) :?> 'x
+
+  module ByteArray =
+    let serialize<'x> (x: 'x): array<byte> =
+      use memoryStream = new MemoryStream()
+      memoryStream |> Stream.serialize<'x> x
+      memoryStream.ToArray()
+
+    let deserialize<'x> (data: array<byte>): 'x =
+      use memoryStream = new MemoryStream()
+      memoryStream |> Stream.writeBytes data
+      memoryStream |> Stream.deserialize<'x>

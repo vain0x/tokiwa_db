@@ -6,6 +6,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open TokiwaDb.Core
 open TokiwaDb.Core.FsSerialize
+open TokiwaDb.Core.FsSerialize.Public
 
 module FsSerializeTest =
   let randomStream =
@@ -18,53 +19,41 @@ module FsSerializeTest =
       randomStream.Seek(position, SeekOrigin.Begin) |> ignore
       randomStream
 
-  let fixedLengthSerializeAndDeserializeTest<'x> (stream: Stream) (x: 'x) =
+  let assertLengthEquals expectedLength actualLength =
     test {
+      match expectedLength with
+      | Length.Flex ->
+        do! assertPred true
+      | Length.Fixed expectedLength ->
+        do! actualLength |> assertEquals expectedLength
+    }
+
+  let testOnStream<'x> (stream: Stream) (x: 'x) =
+    test {
+      let expectedLength        = serializedLength<'x> ()
       let initialPosition       = stream.Position
       // Serialize test.
-      let serializedLength      = stream |> Stream.serialize<'x> x
-      let expectedLength        = Stream.serializedLength<'x> ()
-      do! serializedLength |> assertEquals expectedLength
-      do! (stream.Position - initialPosition) |> assertEquals expectedLength
+      let ()                    = stream |> Stream.serialize<'x> x
+      let serializedLength      = stream.Position - initialPosition
+      do! serializedLength |> assertLengthEquals expectedLength
       // Seek back to the initial position.
-      stream.Seek(-serializedLength, SeekOrigin.Current) |> ignore
+      let () = stream.Seek(-serializedLength, SeekOrigin.Current) |> ignore
       // Deserialize test.
       let x'                    = stream |> Stream.deserialize<'x>
-      do! (stream.Position - initialPosition) |> assertEquals expectedLength
+      let deserializedLength    = stream.Position - initialPosition
+      do! deserializedLength |> assertLengthEquals expectedLength
       return x'
     }
 
-  let fixedLengthTest<'x when 'x: equality> (x: 'x) =
+  let testSerialize<'x when 'x: equality> (x: 'x) =
     test {
       // Empty stream.
-      use emptyStream   = new MemoryStream()
-      let! x'           = fixedLengthSerializeAndDeserializeTest emptyStream x
+      let emptyStream   = new MemoryStream()
+      let! x'           = testOnStream emptyStream x
       do! x' |> assertSatisfies ((=) x)
       // Random stream.
-      use randomStream  = randomStream ()
-      let! x'           = fixedLengthSerializeAndDeserializeTest randomStream x
-      do! x' |> assertSatisfies ((=) x)
-    }
-
-  let flexLengthSerializeAndDeserializeTest<'x> (stream: Stream) (x: 'x) =
-    test {
-      // Serialize test.
-      let beginPosition         = stream.Position
-      let serializedLength      = stream |> Stream.serialize<'x> x
-      let endPosition           = stream.Position
-      do! serializedLength |> assertEquals (endPosition - beginPosition)
-      // Deserialize test.
-      stream.Seek(beginPosition, SeekOrigin.Begin) |> ignore
-      let x'                    = stream |> Stream.deserialize<'x>
-      do! stream.Position |> assertEquals endPosition
-      return x'
-    }
-
-  let flexLengthTest<'x when 'x: equality> (x: 'x) =
-    test {
-      // Empty stream.
-      use emptyStream   = new MemoryStream()
-      let! x'           = flexLengthSerializeAndDeserializeTest<'x> emptyStream x
+      let randomStream  = randomStream ()
+      let! x'           = testOnStream randomStream x
       do! x' |> assertSatisfies ((=) x)
     }
 
@@ -73,7 +62,7 @@ module FsSerializeTest =
       case 0
       case Int32.MaxValue
       case Int32.MinValue
-      run fixedLengthTest
+      run testSerialize
     }
 
   let int64Test =
@@ -81,7 +70,7 @@ module FsSerializeTest =
       case 0L
       case Int64.MaxValue
       case Int64.MinValue
-      run fixedLengthTest
+      run testSerialize
     }
 
   let floatTest =
@@ -89,60 +78,14 @@ module FsSerializeTest =
       case Math.PI
       case Double.MinValue
       case Double.PositiveInfinity
-      run fixedLengthTest
+      run testSerialize
     }
 
   let nanTest =
     test {
       let stream        = new MemoryStream()
-      let! x'           = fixedLengthSerializeAndDeserializeTest stream Double.NaN
+      let! x'           = testOnStream stream Double.NaN
       do! x' |> assertSatisfies Double.IsNaN
-    }
-
-  let dateTimeTest =
-    parameterize {
-      case DateTime.Now
-      case DateTime.MaxValue
-      run fixedLengthTest
-    }
-
-  let tuple2Test =
-    parameterize {
-      case (2L, Math.PI)
-      case (-1L, Double.NegativeInfinity)
-      run fixedLengthTest
-    }
-
-  let tuple3Test =
-    parameterize {
-      case (3L, Math.E, DateTime.MinValue)
-      run fixedLengthTest
-    }
-
-  type TestingUnion =
-    | NoFieldCase
-    | OneFieldCase      of int64
-    | TwoFieldCase      of int64 * float
-
-  let unionTest =
-    parameterize {
-      case NoFieldCase
-      case (OneFieldCase 1L)
-      case (TwoFieldCase (1L, 2.0))
-      run fixedLengthTest
-    }
-
-  type TestingRecord =
-    {
-      Field0            : unit
-      Field1            : int64
-      Field2            : int64 * float
-    }
-
-  let recordTest =
-    parameterize {
-      case { Field0 = (); Field1 = 1L; Field2 = (2L, 2.0) }
-      run fixedLengthTest
     }
 
   let stringTest =
@@ -150,12 +93,98 @@ module FsSerializeTest =
       case ""
       case "hello, world!"
       case "こんにちわ, 世界!"
-      run flexLengthTest
+      run testSerialize
+    }
+
+  let dateTimeTest =
+    parameterize {
+      case DateTime.Now
+      case DateTime.MaxValue
+      run testSerialize
+    }
+
+  let tuple2Test =
+    parameterize {
+      case (2L, Math.PI)
+      case (-1L, Double.NegativeInfinity)
+      run testSerialize
+    }
+
+  let tuple3Test =
+    parameterize {
+      case (3L, Math.E, DateTime.MinValue)
+      run testSerialize
     }
 
   let arrayTest =
     parameterize {
       case [||]
       case [| 1L; 2L; 3L |]
-      run flexLengthTest
+      run testSerialize
     }
+
+  module UnionTest =
+    type FixedLengthUnion =
+      | NoFieldCase
+      | OneFieldCase    of int64
+      | TwoFieldCase    of int64 * float
+
+    type FlexLengthUnion =
+      | StringFieldCase of string
+      //| RecursiveCase   of FlexLengthUnion
+
+    let serializedLengthTest =
+      test {
+        do! serializedLength<FixedLengthUnion> () |> assertEquals (Length.Fixed 17L)
+        do! serializedLength<FlexLengthUnion> () |> assertEquals (Length.Flex)
+      }
+
+    let fixedLengthUnionTest =
+      parameterize {
+        case (NoFieldCase)
+        case (OneFieldCase 1L)
+        case (TwoFieldCase (1L, 2.0))
+        run testSerialize
+      }
+
+    let flexLengthUnionTest =
+      parameterize {
+        case (StringFieldCase "hello")
+        //case (RecursiveCase (StringFieldCase "world"))
+        run testSerialize
+      }
+
+  module RecordTest =
+    type FixedLengthRecord =
+      {
+        UnitField       : unit
+        IntField        : int64
+        IntFloatField   : int64 * float
+      }
+
+    type FlexLengthRecord =
+      {
+        StringField     : string
+        //RecursiveField  : option<FlexLengthRecord>
+      }
+
+    let fixedLengthRecordTest =
+      parameterize {
+        case
+          {
+            UnitField           = ()
+            IntField            = 1L
+            IntFloatField       = (2L, 2.0)
+          }
+        run testSerialize
+      }
+
+    let flexLengthRecordTest =
+      parameterize {
+        case
+          {
+            StringField = "hello"
+            //RecursiveField = Some { StringField = "world"; RecursiveField = None }
+          }
+        run testSerialize
+      }
