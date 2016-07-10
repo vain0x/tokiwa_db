@@ -8,7 +8,63 @@ open System.Text
 open Microsoft.FSharp.Reflection
 open TokiwaDb.Core
 
+type [<AbstractClass>] RuntimeBijective() =
+  abstract member ConvertType: sourceType: Type -> Type
+  abstract member Convert: sourceType: Type * sourceValue: obj -> obj
+  abstract member Invert:  sourceType: Type * destValue: obj -> obj
+
+type [<AbstractClass>] Bijective<'x, 'y>() =
+  inherit RuntimeBijective()
+
+  abstract member Convert: 'x -> 'y
+  abstract member Invert: 'y -> 'x
+
+  override this.ConvertType(_) = typeof<'y>
+
+  override this.Convert(_, x: obj) =
+    this.Convert(x :?> 'x) :> obj
+
+  override this.Invert(_, y: obj) =
+    this.Invert(y :?> 'y) :> obj
+
+module DateTime =
+  let bijectiveToInt64 =
+    { new Bijective<DateTime, int64>() with
+        override this.Convert(dateTime) = dateTime.ToBinary()
+        override this.Invert(data)      = DateTime.FromBinary(data)
+    }
+
 module FSharpValue =
+  module Record =
+    let toTupleType recordType =
+      let fields        = FSharpType.GetRecordFields(recordType)
+      let types         = fields |> Array.map (fun pi -> pi.PropertyType)
+      let tupleType     = FSharpType.MakeTupleType(types)
+      in tupleType
+
+    let toTuple recordType recordValue =
+      let tupleType     = toTupleType recordType
+      let values        = FSharpValue.GetRecordFields(recordValue)
+      let tupleValue    = FSharpValue.MakeTuple(values, tupleType)
+      in tupleValue
+
+    let ofTuple recordType tupleValue =
+      let fields        = FSharpType.GetRecordFields(recordType)
+      let types         = fields |> Array.map (fun pi -> pi.PropertyType)
+      let values        = FSharpValue.GetTupleFields(tupleValue)
+      let recordValue   = FSharpValue.MakeRecord(recordType, values)
+      in recordValue
+
+    let bijectiveToTuple =
+      { new RuntimeBijective() with
+          override this.ConvertType(recordType) =
+            toTupleType recordType
+          override this.Convert(recordType, recordValue) =
+            toTuple recordType recordValue
+          override this.Invert(recordType, tupleValue) =
+            ofTuple recordType tupleValue
+      }
+
   module Function =
     let ofClosure sourceType rangeType f =
       let mappingFunctionType = typedefof<_ -> _>.MakeGenericType([| sourceType; rangeType |])
@@ -159,6 +215,22 @@ module TypeDefinitions =
           length |> int64 |> Length.Fixed
       }
 
+    let ofBijective accept (bijective: RuntimeBijective) =
+      {
+        Accept        = accept
+        Length        = fun length' typ ->
+          let typ'    = bijective.ConvertType(typ)
+          in length' typ'
+        Serialize     = fun _ serialize' stream typ value ->
+          let typ'    = bijective.ConvertType(typ)
+          let value'  = bijective.Convert(typ, value)
+          in serialize' stream typ' value'
+        Deserialize   = fun _ deserialize' stream typ ->
+          let typ'    = bijective.ConvertType(typ)
+          let value'  = deserialize' stream typ'
+          in bijective.Invert(typ, value')
+      }
+
   open Custom
 
   let unitTypeDefinition =
@@ -188,10 +260,9 @@ module TypeDefinitions =
       (fun data -> BitConverter.ToDouble(data, 0))
 
   let dateTimeTypeDefinition =
-    scalarTypeDefinition<DateTime>
-      8
-      (fun value -> BitConverter.GetBytes(value.ToBinary()))
-      (fun data -> DateTime.FromBinary(BitConverter.ToInt64(data, 0)))
+    ofBijective
+      ((=) typeof<DateTime>)
+      DateTime.bijectiveToInt64
 
   let stringTypeDefinition =
     {
@@ -324,48 +395,10 @@ module TypeDefinitions =
         Deserialize     = deserialize
       }
 
-  module Record =
-    let toTupleType recordType =
-      let fields        = FSharpType.GetRecordFields(recordType)
-      let types         = fields |> Array.map (fun pi -> pi.PropertyType)
-      let tupleType     = FSharpType.MakeTupleType(types)
-      in tupleType
-
-    let toTuple recordType recordValue =
-      let tupleType     = toTupleType recordType
-      let values        = FSharpValue.GetRecordFields(recordValue)
-      let tupleValue    = FSharpValue.MakeTuple(values, tupleType)
-      in tupleValue
-
-    let ofTuple recordType tupleValue =
-      let fields        = FSharpType.GetRecordFields(recordType)
-      let types         = fields |> Array.map (fun pi -> pi.PropertyType)
-      let values        = FSharpValue.GetTupleFields(tupleValue)
-      let recordValue   = FSharpValue.MakeRecord(recordType, values)
-      in recordValue
-
-    let length (length': LengthCalculator) recordType =
-      FSharpType.GetRecordFields(recordType)
-      |> Array.map (fun pi -> length' pi.PropertyType)
-      |> Length.sum
-
-    let serialize _ serialize' stream recordType value =
-      let tupleType     = toTupleType recordType
-      let tupleValue    = toTuple recordType value
-      in serialize' stream tupleType tupleValue
-
-    let deserialize _ deserialize' stream recordType =
-      let tupleType     = toTupleType recordType
-      let tupleValue    = deserialize' stream tupleType
-      in ofTuple recordType tupleValue
-
-    let definition =
-      {
-        Accept          = fun type' -> FSharpType.IsRecord(type')
-        Length          = length
-        Serialize       = serialize
-        Deserialize     = deserialize
-      }
+  let recordTypeDefinition =
+    ofBijective
+      (fun type' -> FSharpType.IsRecord(type'))
+      FSharpValue.Record.bijectiveToTuple
 
   let primitiveDefinitions =
     [
@@ -378,7 +411,7 @@ module TypeDefinitions =
       arrayTypeDefinition
       Tuple.definition
       Union.definition
-      Record.definition
+      recordTypeDefinition
     ]
 
 module Public =
