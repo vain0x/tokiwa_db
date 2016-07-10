@@ -107,9 +107,11 @@ module Types =
     | InvalidRecordId     of RecordId
 
   type Operation =
-    | InsertRecords       of TableId * array<RecordPointer>
-    | RemoveRecords       of TableId * array<RecordId>
-    | DropTable           of TableId
+    {
+      InsertRecords     : Map<TableId, ResizeArray<RecordPointer>>
+      RemoveRecords     : Map<TableId, ResizeArray<RecordId>>
+      DropTable         : Set<TableId>
+    }
 
   type [<AbstractClass>] Transaction() =
     abstract member Begin: unit -> unit
@@ -123,7 +125,7 @@ module Types =
     abstract member RevisionServer: RevisionServer
     abstract member BeginCount: int
     abstract member Operations: seq<Operation>
-    abstract member Add: Operation -> unit
+    abstract member Add: (Operation -> Operation) -> unit
 
   type [<AbstractClass>] HashTableIndex() =
     abstract member Projection: RecordPointer -> RecordPointer
@@ -183,4 +185,4 @@ module Types =
     abstract member ImplTables: seq<ImplTable>
 
     abstract member CreateTable: TableSchema -> ImplTable
-    abstract member Perform: array<Operation> -> unit
+    abstract member Perform: Operation -> unit

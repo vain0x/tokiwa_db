@@ -166,6 +166,51 @@ module TableSchema =
   let toFields (schema: TableSchema) =
     Array.append [| Field ("id", TInt) |] schema.Fields
 
+module Operation =
+  let empty =
+    {
+      InsertRecords     = Map.empty
+      RemoveRecords     = Map.empty
+      DropTable         = Set.empty
+    }
+
+  let insertRecords tableId newRecords operation =
+    let (insertRecords, records) =
+      operation.InsertRecords |> Map.findOrInsert tableId (fun () -> ResizeArray())
+    records.AddRange(newRecords)
+    { operation with InsertRecords = insertRecords }
+
+  let removeRecords tableId removedRecordIds operation =
+    let (removeRecords, recordIds) =
+      operation.RemoveRecords |> Map.findOrInsert tableId (fun () -> ResizeArray())
+    recordIds.AddRange(removedRecordIds)
+    { operation with RemoveRecords = removeRecords }
+
+  let dropTable tableId operation =
+    { operation with DropTable = operation.DropTable |> Set.add tableId }
+
+  let merge l r =
+    l
+    |> fold r.InsertRecords
+      (fun (KeyValue (tableId, records)) -> insertRecords tableId records)
+    |> fold r.RemoveRecords
+      (fun (KeyValue (tableId, recordIds)) -> removeRecords tableId recordIds)
+    |> fold r.DropTable
+      dropTable
+
+module ImplTransaction =
+  let operations (transaction: ImplTransaction) =
+    transaction.Operations
+
+  let insertedRecordsTo tableId transaction =
+    transaction |> operations
+    |> Seq.choose (fun operation -> operation.InsertRecords |> Map.tryFind tableId)
+    |> Seq.collect id
+
+  let drops tableId transaction =
+    transaction |> operations
+    |> Seq.exists (fun operation -> operation.DropTable |> Set.contains tableId)
+
 type MemoryRevisionServer(_id: RevisionId) =
   inherit RevisionServer()
   let mutable _id = _id

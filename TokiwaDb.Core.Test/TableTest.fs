@@ -159,17 +159,15 @@ module TableTest =
         }
       let songs =
         testDb.CreateTable(schema)
-      let operations =
-        [|
-          InsertRecords (songs.Id,
-            [|
+      let operation =
+        Operation.empty
+        |> Operation.insertRecords songs.Id
+            ([|
               [| String "Ura Omote Lovers"; String "wowaka" |]
               [| String "Rollin' Girl"; String "wowaka" |]
-            |] |> Array.map (fun rp -> Array.append [| PInt 0L |] (storage.Store(rp)))
-            )
-          RemoveRecords (songs.Id, [| 0L |])
-        |]
-      let () = testDb.Perform(operations)
+            |] |> Array.map (fun rp -> Array.append [| PInt 0L |] (storage.Store(rp))))
+        |> Operation.removeRecords songs.Id [| 0L |]
+      let () = testDb.Perform(operation)
       // We need to bump up the revision number
       // because inserted records are alive only after rev.Next.
       let _ = rev.Increase()

@@ -45,21 +45,11 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     let alreadyDropped () =
       _isAliveAt _db.CurrentRevisionId |> not
     let willBeDropped () =
-      (_transaction ()).Operations |> Seq.exists (fun operation ->
-        match operation with
-        | DropTable (tableId) when tableId = _id -> true
-        |_ -> false
-        )
+      _transaction () |> ImplTransaction.drops _id
     in not (alreadyDropped ()) && not (willBeDropped ())
 
   let _insertedRecordsInTransaction () =
-    (_transaction ()).Operations |> Seq.collect (fun operation ->
-      seq {
-        match operation with
-        | InsertRecords (tableId, records) when tableId = _id ->
-          yield! records
-        | _ -> ()
-      })
+    _transaction () |> ImplTransaction.insertedRecordsTo _id
 
   let _length () =
     let countScheduledInserts =
@@ -191,7 +181,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
             )
           |> Array.unzip
         let () =
-          (_transaction ()).Add(InsertRecords (_id, recordPointers))
+          (_transaction ()).Add(Operation.insertRecords _id recordPointers)
         return recordIds
       })
 
@@ -227,7 +217,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
         |]
         |> Trial.collect
       let () =
-        (_transaction ()).Add(RemoveRecords (_id, recordIds |> List.toArray))
+        (_transaction ()).Add(Operation.removeRecords _id (recordIds |> List.toArray))
       return ()
     }
 
@@ -245,7 +235,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
 
   let _drop () =
     if _canBeModified () then
-      (_transaction ()).Add(DropTable _id)
+      (_transaction ()).Add(Operation.dropTable _id)
 
   static member Create
     ( db: ImplDatabase
