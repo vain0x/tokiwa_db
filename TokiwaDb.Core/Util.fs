@@ -16,6 +16,14 @@ module Option =
     | (true, x) -> Some x
     | (false, _) -> None
 
+  let sequence os =
+    os |> Seq.fold (fun state opt ->
+      match (state, opt) with
+      | (Some xs, Some x) -> (Some (x :: xs))
+      | _ -> None
+      ) (Some [])
+    |> Option.map List.rev
+
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
 
@@ -94,18 +102,23 @@ module Stream =
     let _         = stream.Read(buffer, 0, buffer.Length)
     in UTF8Encoding.UTF8.GetString(buffer)
 
+  let readBytes count (stream: Stream) =
+    let buffer    = Array.zeroCreate count
+    let _         = stream.Read(buffer, 0, count)
+    in buffer
+
+  let writeBytes data (stream: Stream) =
+    stream.Write(data, 0, data.Length)
+
   let writeString (s:string) (stream: Stream) =
     let buffer    = UTF8Encoding.UTF8.GetBytes(s)
     in stream.Write(buffer, 0, buffer.Length)
 
   let readInt64 (stream: Stream) =
-    let bytes = Array.zeroCreate 8
-    let _ = stream.Read(bytes, 0, bytes.Length)
-    in BitConverter.ToInt64(bytes, 0)
+    BitConverter.ToInt64(stream |> readBytes 8, 0)
 
   let writeInt64 (n: int64) (stream: Stream) =
-    let bytes = BitConverter.GetBytes(n)
-    in stream.Write(bytes, 0, bytes.Length)
+    stream |> writeBytes (BitConverter.GetBytes(n))
 
 module FileInfo =
   open System.IO
@@ -127,27 +140,3 @@ module FileInfo =
   let readText (file: FileInfo) =
     use streamReader = file.OpenText()
     in streamReader.ReadToEnd()
-
-module FsYaml =
-  open FsYaml
-  open FsYaml.NativeTypes
-
-  let unitDef =
-    {
-      Accept = (=) typeof<unit>
-      Construct =
-        fun _ _ _ -> () :> obj
-      Represent =
-        fun _ _ _ -> RepresentationTypes.Null None
-    }
-
-  let customTypeDefinitions =
-    [
-      unitDef
-    ]
-
-  let customLoad<'x> source =
-    source |> Yaml.loadWith<'x> customTypeDefinitions
-
-  let customDump<'x> (value: 'x) =
-    value |> Yaml.dumpWith<'x> customTypeDefinitions

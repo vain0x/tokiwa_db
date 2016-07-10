@@ -4,6 +4,8 @@ open System
 open System.Collections
 open System.Collections.Generic
 open System.IO
+open TokiwaDb.Core.FsSerialize.Public
+open TokiwaDb.Core.FsSerialize.TypeDefinitions.Custom
 
 type IResizeArray<'x> =
   inherit IEnumerable<'x>
@@ -15,58 +17,56 @@ type IResizeArray<'x> =
   abstract member SetAll: (IResizeArray<'x> -> unit) -> unit
 
 /// A stream source as an array of elements which can be serialized in fixed length.
-type StreamArray<'x>
-  ( _source: StreamSource
-  , _serializer: FixedLengthSerializer<'x>
-  ) =
-  let _length () =
-    _source.Length / _serializer.Length
+type StreamArray<'x>(_source: StreamSource, _customDefinitions: list<TypeDefinition>) =
+  let _unitSize =
+    (serializedLengthWith<'x> _customDefinitions) |> FsSerialize.Length.toInt64
 
-  let _initialize length x =
-    let data        = _serializer.Serialize(x)
+  let _length () =
+    _source.Length / _unitSize
+
+  let _initialize length (x: 'x) =
     let writeTo (source: StreamSource) =
       use stream    = source.OpenReadWrite()
       in
         for i in 0L..(length - 1L) do
-          stream.Write(data, 0, data.Length)
+          stream |> Stream.serializeWith<'x> _customDefinitions x
     in
       _source.WriteAll(writeTo)
 
   let _get i =
     if 0L <= i && i < _length () then
-      let buffer    = Array.zeroCreate (int _serializer.Length)
+      let buffer    = Array.zeroCreate (int _unitSize)
       use stream    = _source.OpenRead()
-      let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
-      let _         = stream.Read(buffer, 0, buffer.Length)
-      in _serializer.Deserialize(buffer)
+      let _         = stream.Seek(i * _unitSize, SeekOrigin.Begin)
+      in stream |> Stream.deserializeWith<'x> _customDefinitions
     else
       raise (ArgumentException())
 
   let _toSeq () =
     seq {
-      let buffer      = Array.zeroCreate (int _serializer.Length)
       let length      = _length ()
       let stream      = _source.OpenRead()
       for i in 0L..(length - 1L) do
-        let _     = stream.Read(buffer, 0, buffer.Length)
-        yield _serializer.Deserialize(buffer)
+        yield stream |> Stream.deserializeWith<'x> _customDefinitions
       do stream.Dispose()
     }
 
-  let _set i x =
+  let _set i (x: 'x) =
     if 0L <= i && i < _length () then
-      let data      = _serializer.Serialize(x)
       use stream    = _source.OpenReadWrite()
-      let _         = stream.Seek(i * _serializer.Length, SeekOrigin.Begin)
-      in stream.Write(data, 0, data.Length)
+      let _         = stream.Seek(i * _unitSize, SeekOrigin.Begin)
+      in stream |> Stream.serializeWith<'x> _customDefinitions x
     else
       raise (ArgumentException())
 
   let _setAll initializer =
     let write source =
-      StreamArray(source, _serializer) |> initializer
+      StreamArray(source, _customDefinitions) |> initializer
     in
       _source.WriteAll(write)
+
+  new(source) =
+    StreamArray(source, [])
 
   interface IResizeArray<'x> with
     override this.Length =

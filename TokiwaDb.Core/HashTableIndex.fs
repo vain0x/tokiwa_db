@@ -1,18 +1,16 @@
 ﻿namespace TokiwaDb.Core
 
+open TokiwaDb.Core.FsSerialize.TypeDefinitions
 open HashTableDetail
 
 type StreamHashTableIndex(_fieldIndexes: array<int>, _source: StreamSource) =
   inherit ImplHashTableIndex()
 
   let _hashTable =
-    let serializer =
-      HashTableElementSerializer<RecordPointer, RecordId>
-        ( RecordPointer.serializer _fieldIndexes.LongLength
-        , Int64Serializer()
-        )
+    let fixedLengthArrayTypeDefinition =
+      Array.fixedLengthArrayTypeDefinition _fieldIndexes.LongLength
     let rootArray =
-      StreamArray(_source, serializer)
+      StreamArray(_source, [fixedLengthArrayTypeDefinition])
     in
       MultiHashTable<RecordPointer, RecordId>(RecordPointer.hash, rootArray)
 

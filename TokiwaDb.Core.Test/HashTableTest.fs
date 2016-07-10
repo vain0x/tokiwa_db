@@ -8,41 +8,31 @@ open TokiwaDb.Core
 module HashTableTest =
   open HashTableDetail
 
-  let hashTableElementSerializerTest =
-    HashTableElementSerializer<int, string>(IntSerializer(), FixedStringSerializer())
-    |> SerializerTest.serializerTest
-      [
-        Busy (1, "test", 12345L)
-        Empty
-        Removed
-      ]
-
   let hash x = x.GetHashCode() |> int64
 
   let root () =
-    let serializer = HashTableElementSerializer<string, int>(FixedStringSerializer(), IntSerializer())
-    in StreamArray(new MemoryStreamSource([||]), serializer) :> IResizeArray<_>
+    StreamArray(new MemoryStreamSource([||])) :> IResizeArray<_>
 
   let empty () =
-    HashTable<string, int>(hash, root ())
+    HashTable<float, int>(hash, root ())
 
   let ``Insert and TryFind Test`` =
     test {
       let map         = empty ()
       // The length increases after insertion.
       do! map.Length |> assertEquals 0L
-      let ()          = map.Insert("test", 1, fun _ _ -> failwith "unexpected")
+      let ()          = map.Insert(Math.PI, 1, fun _ _ -> failwith "unexpected")
       do! map.Length |> assertEquals 1L
       // A value should be found iff it has been inserted.
-      do! map.TryFind("test") |> assertEquals (Some 1)
-      do! map.TryFind("????") |> assertEquals None
+      do! map.TryFind(Math.PI) |> assertEquals (Some 1)
+      do! map.TryFind(0.0) |> assertEquals None
       // Inserted value and the value with the same key which already exists should be merged.
-      let! e          = trap { it (map.Insert("test", 2, fun v v' -> failwithf "%d,%d" v v')) }
+      let! e          = trap { it (map.Insert(Math.PI, 2, fun v v' -> failwithf "%d,%d" v v')) }
       do! e.Message |> assertEquals "1,2"
     }
 
   let xs =
-    [ for i in 0..15 -> (sprintf "%04d" i, i) ]
+    [ for i in 0..15 -> (float i, i) ]
 
   let serialNumbers () =
     let map = empty ()
@@ -67,8 +57,8 @@ module HashTableTest =
     test {
       let map       = serialNumbers ()
       // Update should replace the value with the same key.
-      let ()        = map.Update("0004", 42)
-      do! map.TryFind("0004") |> assertEquals (Some 42)
+      let ()        = map.Update(4.0, 42)
+      do! map.TryFind(4.0) |> assertEquals (Some 42)
     }
 
   let removeTest =
@@ -76,21 +66,21 @@ module HashTableTest =
       let map       = serialNumbers ()
       let len       = map.Length
       // Remove should success iff the map contains some element with the key.
-      do! map.Remove("0003") |> assertPred
-      do! map.Remove("9999") |> not |> assertPred
+      do! map.Remove(3.0) |> assertPred
+      do! map.Remove(-1.0) |> not |> assertPred
       // The length decreases after removing.
       do! map.Length |> assertEquals (len - 1L)
       // Removed element shouldn't be found.
-      do! map.TryFind("0003") |> assertEquals None
+      do! map.TryFind(3.0) |> assertEquals None
     }
 
   let ``Remove and TryFind Test`` =
     let map       = serialNumbers ()
-    let _         = map.Remove("0009")
+    let _         = map.Remove(9.0)
     let body (k, v) =
       test {
         // Any elements should be found even after removing.
-        do! map.TryFind(k) |> assertEquals (if k = "0009" then None else Some v)
+        do! map.TryFind(k) |> assertEquals (if k = 9.0 then None else Some v)
       }
     parameterize {
       source xs
@@ -102,7 +92,7 @@ module MultiHashTableTest =
   open HashTableTest
 
   let empty () =  
-    MultiHashTable<string, int>(hash, root ())
+    MultiHashTable<float, int>(hash, root ())
 
   let seed () =
     let mmap = empty ()
@@ -126,21 +116,21 @@ module MultiHashTableTest =
   let findAllTest =
     test {
       let mmap = seed ()
-      do! mmap.FindAll("9999") |> assertSatisfies Seq.isEmpty
-      do! mmap.FindAll("0001") |> assertSeqEquals [1]
+      do! mmap.FindAll(-1.0) |> assertSatisfies Seq.isEmpty
+      do! mmap.FindAll(1.0) |> assertSeqEquals [1]
     }
 
   let duplicatedKeyTest =
     test {
       let mmap = seed ()
-      mmap.Insert("0001", -1)
-      do! mmap.FindAll("0001") |> assertSeqEquals [1; -1]
+      mmap.Insert(1.0, -1)
+      do! mmap.FindAll(1.0) |> assertSeqEquals [1; -1]
     }
 
   let removeAllTest =
     test {
       let mmap = seed ()
-      mmap.Insert("0001", -1)
-      do! mmap.RemoveAll("0001") |> assertSeqEquals [1; -1]
-      do! mmap.FindAll("0001") |> assertSatisfies Seq.isEmpty
+      mmap.Insert(1.0, -1)
+      do! mmap.RemoveAll(1.0) |> assertSeqEquals [1; -1]
+      do! mmap.FindAll(1.0) |> assertSatisfies Seq.isEmpty
     }
