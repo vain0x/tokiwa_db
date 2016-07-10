@@ -88,15 +88,13 @@ type RepositoryDatabase(_repo: Repository) as this =
       table
       )
 
-  let _perform operations =
-    for operation in operations do
-      match operation with
-      | InsertRecords (tableId, records) ->
-        _tables.[int tableId].PerformInsert(records)
-      | RemoveRecords (tableId, recordIds) ->
-        _tables.[int tableId].PerformRemove(recordIds)
-      | DropTable (tableId) ->
-        _tables.[int tableId].PerformDrop()
+  let _perform (operation: Operation) =
+    for (KeyValue (tableId, records)) in operation.InsertRecords do
+      _tables.[int tableId].PerformInsert(records.ToArray())
+    for (KeyValue (tableId, recordIds)) in operation.RemoveRecords do
+      _tables.[int tableId].PerformRemove(recordIds.ToArray())
+    for tableId in operation.DropTable do
+      _tables.[int tableId].PerformDrop()
 
   let _disposable =
     new RelayDisposable(_saveConfig) :> IDisposable
@@ -125,8 +123,8 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.CreateTable(schema: TableSchema) =
     _createTable schema
 
-  override this.Perform(operations) =
-    _perform operations
+  override this.Perform(operation) =
+    _perform operation
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))

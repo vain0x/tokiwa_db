@@ -1,5 +1,10 @@
 ﻿namespace TokiwaDb.Core
 
+[<AutoOpen>]
+module Misc =
+  let fold xs f s =
+    xs |> Seq.fold (fun s x -> f x s) s
+
 module Hash =
   /// Cloned from Boost hash_combine.
   let combine seed hash =
@@ -64,6 +69,14 @@ module ResizeArray =
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length
+
+  let findOrInsert (key: 'k) (f: unit -> 'v) (map: Map<'k, 'v>) =
+    match map |> Map.tryFind key with
+    | Some value ->
+      (map, value)
+    | None ->
+      let value = f ()
+      in (map |> Map.add key value, value)
 
 module Seq =
   let tryHead (xs: seq<'x>): option<'x> =
