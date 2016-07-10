@@ -140,27 +140,3 @@ module FileInfo =
   let readText (file: FileInfo) =
     use streamReader = file.OpenText()
     in streamReader.ReadToEnd()
-
-module FsYaml =
-  open FsYaml
-  open FsYaml.NativeTypes
-
-  let unitDef =
-    {
-      Accept = (=) typeof<unit>
-      Construct =
-        fun _ _ _ -> () :> obj
-      Represent =
-        fun _ _ _ -> RepresentationTypes.Null None
-    }
-
-  let customTypeDefinitions =
-    [
-      unitDef
-    ]
-
-  let customLoad<'x> source =
-    source |> Yaml.loadWith<'x> customTypeDefinitions
-
-  let customDump<'x> (value: 'x) =
-    value |> Yaml.dumpWith<'x> customTypeDefinitions
