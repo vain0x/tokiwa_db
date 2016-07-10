@@ -9,6 +9,7 @@ open TokiwaDb.Core.FsSerialize
 
 [<AutoOpen>]
 module CustomPublic =
+  open TokiwaDb.Core.FsSerialize.TypeDefinitions.Custom
   open TokiwaDb.Core.FsSerialize.Public
 
   let customDefinitions =

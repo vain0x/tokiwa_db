@@ -96,16 +96,6 @@ module ValuePointer =
   let hash vp =
     vp |> toUntyped
 
-  let serializer =
-    FixedLengthUnionSerializer<ValuePointer>
-      ([|
-        Int64Serializer()
-        FloatSerializer()
-        Int64Serializer()
-        Int64Serializer()
-        DateTimeSerializer()
-      |])
-
 module Record =
   let toType record =
     record |> Array.map Value.toType
@@ -121,9 +111,6 @@ module Record =
 module RecordPointer =
   let hash recordPointer =
     recordPointer |> Array.map ValuePointer.hash |> Array.hash |> int64
-
-  let serializer len =
-    FixedLengthArraySerializer(ValuePointer.serializer, len)
 
   let tryId recordPointer =
     match recordPointer |> Array.tryHead with

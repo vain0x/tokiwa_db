@@ -161,6 +161,12 @@ module Length =
     | Length.Flex         -> None
     | Length.Fixed length -> Some length
 
+  let map f length =
+    length
+    |> toOption
+    |> Option.map f
+    |> ofOption
+
   let mapSeq f lengths =
     lengths
     |> Seq.map toOption
@@ -170,6 +176,9 @@ module Length =
 
   let sum lengths = mapSeq Seq.sum lengths
   let max lengths = mapSeq Seq.max lengths
+
+  let toInt64 =
+    toOption >> Option.get
 
 module Primitives =
   let rec length definitions type' =
@@ -197,12 +206,20 @@ module Primitives =
 
 module TypeDefinitions =
   module Custom =
-    let serializeSeq _ serialize' stream seqType (value: obj) =
+    type TypeDefinition = Types.TypeDefinition
+
+    let isGenericTypeDefOf genericTypeDef (type': Type) =
+      type'.IsGenericType
+      && type'.GetGenericTypeDefinition() = genericTypeDef
+
+    let serializeFixedLengthSeq _ serialize' stream seqType (value: obj) =
       let elementType   = seqType |> RuntimeSeq.elementType
+      in value |> RuntimeSeq.iter (serialize' stream elementType) seqType
+
+    let serializeSeq length' serialize' stream seqType (value: obj) =
       let length        = value |> RuntimeSeq.length seqType |> int64
       let ()            = stream |> Stream.writeInt64 length
-      let ()            = value |> RuntimeSeq.iter (serialize' stream elementType) seqType
-      in ()
+      in serializeFixedLengthSeq length' serialize' stream seqType value
 
     let scalarTypeDefinition<'x> length serialize (deserialize: array<byte> -> 'x) =
       {
@@ -280,17 +297,32 @@ module TypeDefinitions =
         in UTF8Encoding.UTF8.GetString(data) :> obj
     }
 
-  let arrayTypeDefinition =
-    {
-      Accept            = fun type' -> type'.IsArray
-      Length            = fun _ _ -> Length.Flex
-      Serialize         = serializeSeq
-      Deserialize       = fun _ deserialize' stream arrayType ->
-        let elementType = arrayType.GetElementType()
-        let length      = stream |> Stream.readInt64
-        let values      = [| for i in 0L..(length - 1L) -> deserialize' stream elementType |]
-        in ObjectElementSeq.toArray elementType values
-    }
+  module Array =
+    let accept (typ: Type) = typ.IsArray
+
+    let fixedLengthDeserialize length length' deserialize' stream (arrayType: Type) =
+      let elementType = arrayType.GetElementType()
+      let values      = [| for i in 0L..(length - 1L) -> deserialize' stream elementType |]
+      in ObjectElementSeq.toArray elementType values
+
+    let definition =
+      {
+        Accept            = accept
+        Length            = fun _ _ -> Length.Flex
+        Serialize         = serializeSeq
+        Deserialize       = fun length' deserialize' stream arrayType ->
+          let length      = stream |> Stream.readInt64
+          in fixedLengthDeserialize length length' deserialize' stream arrayType
+      }
+
+    let fixedLengthArrayTypeDefinition length =
+      {
+        Accept            = accept
+        Length            = fun length' typ ->
+          length' (typ.GetElementType()) |> Length.map ((*) length)
+        Serialize         = serializeFixedLengthSeq
+        Deserialize       = fixedLengthDeserialize length
+      }
 
   module Tuple =
     let length (length': LengthCalculator) type' =
@@ -408,7 +440,7 @@ module TypeDefinitions =
       floatTypeDefinition
       dateTimeTypeDefinition
       stringTypeDefinition
-      arrayTypeDefinition
+      Array.definition
       Tuple.definition
       Union.definition
       recordTypeDefinition
