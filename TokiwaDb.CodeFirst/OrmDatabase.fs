@@ -32,7 +32,7 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
 
   do _resetIfModelHasChanged ()
 
-  let _tables: IDictionary<Type, ImplTable> =
+  let _implTableFromType: IDictionary<Type, ImplTable> =
     seq {
       let map =
         _tableSchemas |> Seq.map (fun (type', schema) -> (schema.Name, type'))
@@ -56,6 +56,6 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
     _impl.Transaction
 
   override this.Table<'m when 'm :> IModel>() =
-    match _tables.TryGetValue(typeof<'m>) with
+    match _implTableFromType.TryGetValue(typeof<'m>) with
     | (true, table) -> OrmTable<'m>(table) :> Table<'m>
     | (false, _) -> ArgumentException() |> raise
