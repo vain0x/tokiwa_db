@@ -16,6 +16,11 @@ module Option =
     | Some x -> x
     | None -> x
 
+  let getOrElse (f: unit -> 'x): option<'x> -> 'x =
+    function
+    | Some x -> x
+    | None -> f ()
+
   let ofPair =
     function
     | (true, x) -> Some x
@@ -66,6 +71,26 @@ module ResizeArray =
     then xs.[i] |> Some
     else None
 
+module IDictionary =
+  open System.Collections.Generic
+
+  let toPairSeq (dict: IDictionary<'k, 'v>): seq<'k * 'v> =
+    dict |> Seq.map (fun (KeyValue kv) -> kv)
+
+  let tryFind (key: 'k) (dict: IDictionary<'k, 'v>): option<'v> =
+    match dict.TryGetValue(key) with
+    | (true, value)     -> Some value
+    | (false, _)        -> None
+
+module Dictionary =
+  open System.Collections.Generic
+
+  let ofSeq (kvs: seq<'k * 'v>): Dictionary<'k, 'v> =
+    let dict = Dictionary<'k, 'v>()
+    for (k, v) in kvs do
+      dict.Add(k, v)
+    dict
+
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length
@@ -88,6 +113,13 @@ module Seq =
     if xs |> Seq.isEmpty
     then true
     else xs |> Seq.skip 1 |> Seq.forall ((=) (xs |> Seq.head))
+
+module Type =
+  open System
+
+  let isGenericTypeDefOf genericTypeDef (typ: Type) =
+    typ.IsGenericType
+    && typ.GetGenericTypeDefinition() = genericTypeDef
 
 [<AutoOpen>]
 module DisposableExtensions =

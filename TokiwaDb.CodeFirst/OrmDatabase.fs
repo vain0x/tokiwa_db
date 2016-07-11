@@ -32,16 +32,27 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
 
   do _resetIfModelHasChanged ()
 
-  let _tables: IDictionary<Type, ImplTable> =
+  let _typeFromTableName =
+    _tableSchemas |> Seq.map (fun (type', schema) -> (schema.Name, type'))
+    |> Map.ofSeq
+
+  let _implTableFromType: IDictionary<Type, ImplTable> =
     seq {
-      let map =
-        _tableSchemas |> Seq.map (fun (type', schema) -> (schema.Name, type'))
-        |> Map.ofSeq
       for table in _livingTables () do
-        match map |> Map.tryFind table.Name with
+        match _typeFromTableName |> Map.tryFind table.Name with
         | Some type' -> yield (type', table)
         | None -> ()
     } |> dict
+
+  let _tableFromType modelType: obj =
+    match _implTableFromType.TryGetValue(modelType) with
+    | (true, implTable) ->
+      let tableType     = typedefof<OrmTable<_>>.MakeGenericType(modelType)
+      in Activator.CreateInstance(tableType, [| implTable :> obj |])
+    | (false, _) -> ArgumentException() |> raise
+
+  member this.CreateContext<'c>() =
+    DbContext.construct<'c> this _tableFromType
 
   override this.Dispose() =
     _impl.Dispose()
@@ -54,8 +65,3 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
 
   override this.Transaction =
     _impl.Transaction
-
-  override this.Table<'m when 'm :> IModel>() =
-    match _tables.TryGetValue(typeof<'m>) with
-    | (true, table) -> OrmTable<'m>(table) :> Table<'m>
-    | (false, _) -> ArgumentException() |> raise

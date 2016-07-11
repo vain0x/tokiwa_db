@@ -28,21 +28,21 @@ module ModelTest =
 
   let mappedPropertiesTest =
     test {
-      do! Model.mappedProperties<Person> ()
+      do! Model.mappedProperties typeof<Person>
         |> Array.map (fun pi -> pi.Name)
         |> assertEquals [| "Name"; "Age" |]
     }
 
   let toFieldsTest =
     test {
-      do! Model.toFields<Person> ()
+      do! Model.toFields typeof<Person>
         |> assertEquals [| Field.string "Name"; Field.int "Age" |]
     }
 
   let toRecordTest =
     test {
       let person = Person("Miku", Age = 16L)
-      do! person |> Model.toRecord
+      do! person |> Model.toRecord typeof<Person>
         |> assertEquals [| String "Miku"; Int 16L |]
     }
 
@@ -50,8 +50,23 @@ module ModelTest =
     test {
       let person =
         Mortal.create 0L [| Int -1L; String "Miku"; Int 16L |]
-        |> Model.ofMortalRecord<Person>
+        |> Model.ofMortalRecord typeof<Person>
+        :?> Person
       do! person.Id |> assertEquals -1L
       do! person.Name |> assertEquals "Miku"
       do! person.Age |> assertEquals 16L
     }
+
+[<AutoOpen>]
+module ModelsForTest =
+  type Person() =
+    inherit Model()
+
+    member val Name = "" with get, set
+    member val Age = 0L with get, set
+
+  type Song() =
+    inherit Model()
+
+    member val Name = "" with get, set
+    member val Vocal = "" with get, set

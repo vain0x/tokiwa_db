@@ -53,6 +53,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="TableSchema.fs" />
+    <Compile Include="DbContext.fs" />
     <Compile Include="OrmTable.fs" />
     <Compile Include="OrmDatabase.fs" />
     <Compile Include="DbConfig.fs" />

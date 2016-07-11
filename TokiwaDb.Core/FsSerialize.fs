@@ -208,10 +208,6 @@ module TypeDefinitions =
   module Custom =
     type TypeDefinition = Types.TypeDefinition
 
-    let isGenericTypeDefOf genericTypeDef (type': Type) =
-      type'.IsGenericType
-      && type'.GetGenericTypeDefinition() = genericTypeDef
-
     let serializeFixedLengthSeq _ serialize' stream seqType (value: obj) =
       let elementType   = seqType |> RuntimeSeq.elementType
       in value |> RuntimeSeq.iter (serialize' stream elementType) seqType

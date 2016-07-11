@@ -7,7 +7,10 @@ open TokiwaDb.CodeFirst
 open TokiwaDb.CodeFirst.Detail
 
 module DbConfigTest =
-  let testDb =
-    let dbConfig = DbConfig()
-    dbConfig.AddTable<Person>(UniqueIndex.Of<Person>([| "Name"; "Age" |]))
-    dbConfig.OpenMemory("")
+  let normalTest =
+    test {
+      let dbConfig = DbConfig<TestDbContext>()
+      dbConfig.Add<Person>(UniqueIndex.Of<Person>([| "Name"; "Age" |]))
+      dbConfig.OpenMemory("") |> ignore
+      return ()
+    }
