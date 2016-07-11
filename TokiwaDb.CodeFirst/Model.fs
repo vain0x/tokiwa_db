@@ -28,17 +28,17 @@ module Model =
     m.Id >= 0L
 
   /// Properties which fields of a record maps to.
-  let mappedProperties<'m when 'm :> IModel> () =
+  let mappedProperties (modelType: Type) =
     let bindingFlags =
           BindingFlags.DeclaredOnly
       ||| BindingFlags.Instance
       ||| BindingFlags.Public
     in
-      typeof<'m>.GetProperties(bindingFlags)
+      modelType.GetProperties(bindingFlags)
       |> Array.filter (fun pi -> pi.SetMethod <> null)
 
   /// Get an array of Field, excluding "id".
-  let toFields<'m when 'm :> IModel> =
+  let toFields =
     let map =
       [
         (typeof<int64>          , Field.int)
@@ -47,8 +47,8 @@ module Model =
         (typeof<DateTime>       , Field.time)
       ]
       |> dict
-    fun () ->
-      mappedProperties<'m> ()
+    fun (modelType: Type) ->
+      mappedProperties modelType
       |> Array.map (fun pi ->
         let f =
           match map.TryGetValue(pi.PropertyType) with
@@ -58,13 +58,15 @@ module Model =
         )
 
   /// Create a record, excluding "id".
-  let toRecord<'m when 'm :> IModel> (m: 'm) =
-    mappedProperties<'m> ()
-    |> Array.map (fun pi -> pi.GetValue(m) |> Value.ofObj)
+  let toRecord modelType (model: IModel) =
+    mappedProperties modelType
+    |> Array.map (fun pi -> pi.GetValue(model) |> Value.ofObj)
 
   /// Create an instance of model from a mortal record with "id".
-  let ofMortalRecord<'m when 'm :> IModel> (record: MortalValue<Record>): 'm =
-    let m     = Activator.CreateInstance<'m>()
+  let ofMortalRecord (modelType: Type) (record: MortalValue<Record>): IModel =
+    let m     = Activator.CreateInstance(modelType) :?> IModel
+    let set propertyName value =
+      modelType.GetProperty(propertyName).SetValue(m, value)
     let ()    =
       m.Id <- record.Value |> Record.tryId |> Option.get
       m.Birth <- record.Birth
@@ -72,6 +74,6 @@ module Model =
     let ()    =
       Array.zip
         (record.Value |> Record.dropId)
-        (mappedProperties<'m> ())
+        (mappedProperties modelType)
       |> Array.iter (fun (value, pi) -> pi.SetValue(m, value |> Value.toObj))
     in m

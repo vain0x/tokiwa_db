@@ -21,8 +21,8 @@ type Song() =
 module OrmDatabaseTest =
   let schemas =
     [
-      (typeof<Person>, TableSchema.ofModel<Person> ())
-      (typeof<Song>, TableSchema.ofModel<Song> ())
+      (typeof<Person>, TableSchema.ofModel typeof<Person>)
+      (typeof<Song>, TableSchema.ofModel typeof<Song>)
     ]
 
   let testDb () = new OrmDatabase(new MemoryDatabase("test_db"), schemas)

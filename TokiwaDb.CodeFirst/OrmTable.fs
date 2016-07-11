@@ -8,9 +8,12 @@ open TokiwaDb.CodeFirst
 type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   inherit Table<'m>()
 
+  let _modelType = typeof<'m>
+
   let _toModel (rp: MortalValue<RecordPointer>) =
     rp |> MortalValue.map _impl.Database.Storage.Derefer
-    |> Model.ofMortalRecord<'x>
+    |> Model.ofMortalRecord _modelType
+    :?> 'm
 
   let _item recordId =
     match _impl.RecordById(recordId) with
@@ -27,9 +30,9 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
     _allItems ()
     |> Seq.filter (fun item -> item.IsLiveAt(_impl.Database.CurrentRevisionId))
 
-  let _insert model =
+  let _insert (model: 'm) =
     assert (model |> Model.hasId |> not)
-    let record = model |> Model.toRecord<'m>
+    let record = model |> Model.toRecord _modelType
     match _impl.Insert([| record |]) with
     | Pass [| recordId |] ->
       model.Id <- recordId

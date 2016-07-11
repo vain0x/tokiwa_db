@@ -9,7 +9,7 @@ type DbConfig() =
   let mutable _tableSchemas = ResizeArray<Type * TableSchema>()
 
   member this.AddTable<'m when 'm :> IModel>([<ParamArray>] itss: IIncrementalTableSchema []) =
-    _tableSchemas.Add((typeof<'m>, TableSchema.ofModel<'m> () |> TableSchema.alter itss))
+    _tableSchemas.Add((typeof<'m>, TableSchema.ofModel typeof<'m> |> TableSchema.alter itss))
 
   member this.OpenMemory(name: string) =
     new OrmDatabase(new MemoryDatabase(name), _tableSchemas)
