@@ -66,6 +66,17 @@ module ResizeArray =
     then xs.[i] |> Some
     else None
 
+module IDictionary =
+  open System.Collections.Generic
+
+  let toPairSeq (dict: IDictionary<'k, 'v>): seq<'k * 'v> =
+    dict |> Seq.map (fun (KeyValue kv) -> kv)
+
+  let tryFind (key: 'k) (dict: IDictionary<'k, 'v>): option<'v> =
+    match dict.TryGetValue(key) with
+    | (true, value)     -> Some value
+    | (false, _)        -> None
+
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length
