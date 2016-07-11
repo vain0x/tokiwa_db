@@ -135,6 +135,20 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         }
 
         [TestMethod]
+        public void ItemSample()
+        {
+            using (var db = CreateSampleDatabase())
+            {
+                var persons = db.Table<Person>();
+
+                // Table<M>.Item メソッドは、与えられた ID を持つレコードを取得します。
+                // Table<M>.Item method fetches the record with the given id.
+                var miku = persons.Item(0L);
+                Assert.AreEqual("Miku", miku.Name);
+            }
+        }
+
+        [TestMethod]
         public void ItemsSample()
         {
             using (var db = CreateSampleDatabase())
