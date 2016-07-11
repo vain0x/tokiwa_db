@@ -43,6 +43,13 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
         | None -> ()
     } |> dict
 
+  let _tableFromType modelType: obj =
+    match _implTableFromType.TryGetValue(modelType) with
+    | (true, implTable) ->
+      let tableType     = typedefof<OrmTable<_>>.MakeGenericType(modelType)
+      in Activator.CreateInstance(tableType, [| implTable :> obj |])
+    | (false, _) -> ArgumentException() |> raise
+
   override this.Dispose() =
     _impl.Dispose()
 
@@ -56,6 +63,4 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
     _impl.Transaction
 
   override this.Table<'m when 'm :> IModel>() =
-    match _implTableFromType.TryGetValue(typeof<'m>) with
-    | (true, table) -> OrmTable<'m>(table) :> Table<'m>
-    | (false, _) -> ArgumentException() |> raise
+    _tableFromType typeof<'m> :?> Table<'m>
