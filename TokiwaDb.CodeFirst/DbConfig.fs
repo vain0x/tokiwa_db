@@ -8,11 +8,14 @@ open TokiwaDb.CodeFirst.Detail
 type DbConfig() =
   let mutable _tableSchemas = ResizeArray<Type * TableSchema>()
 
+  let _open implDb =
+    new OrmDatabase(implDb, _tableSchemas)
+    
   member this.AddTable<'m when 'm :> IModel>([<ParamArray>] itss: IIncrementalTableSchema []) =
     _tableSchemas.Add((typeof<'m>, TableSchema.ofModel typeof<'m> |> TableSchema.alter itss))
 
   member this.OpenMemory(name: string) =
-    new OrmDatabase(new MemoryDatabase(name), _tableSchemas)
+    new MemoryDatabase(name) |> _open
 
   member this.OpenDirectory(dir: DirectoryInfo) =
-    new OrmDatabase(new DirectoryDatabase(dir), _tableSchemas)
+    new DirectoryDatabase(dir) |> _open
