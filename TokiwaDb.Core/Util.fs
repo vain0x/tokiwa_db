@@ -100,6 +100,13 @@ module Seq =
     then true
     else xs |> Seq.skip 1 |> Seq.forall ((=) (xs |> Seq.head))
 
+module Type =
+  open System
+
+  let isGenericTypeDefOf genericTypeDef (typ: Type) =
+    typ.IsGenericType
+    && typ.GetGenericTypeDefinition() = genericTypeDef
+
 [<AutoOpen>]
 module DisposableExtensions =
   open System
