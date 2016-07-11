@@ -50,8 +50,9 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   override this.Drop() =
     _impl.Drop()
 
-  override this.Item(recordId) =
-    _item recordId
+  override this.Item
+    with get (recordId) =
+      _item recordId
 
   override this.AllItems =
     _allItems ()

@@ -141,9 +141,9 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
             {
                 var persons = db.Table<Person>();
 
-                // Table<M>.Item メソッドは、与えられた ID を持つレコードを取得します。
-                // Table<M>.Item method fetches the record with the given id.
-                var miku = persons.Item(0L);
+                // Table<M>.Item プロパティの getter (インデクサー) は、与えられた ID を持つレコードを取得します。
+                // The getter of Table<M>.Item property (indexer) fetches the record with the given id.
+                var miku = persons[0L];
                 Assert.AreEqual("Miku", miku.Name);
             }
         }

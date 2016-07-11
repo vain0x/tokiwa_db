@@ -38,7 +38,7 @@ type [<AbstractClass>] Model() =
 type [<AbstractClass>] Table<'m when 'm :> IModel>() =
   inherit BaseTable()
 
-  abstract member Item: RecordId -> 'm
+  abstract member Item: RecordId -> 'm with get
   abstract member AllItems: seq<'m>
   abstract member Items: seq<'m>
 
