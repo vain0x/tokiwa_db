@@ -11,14 +11,14 @@ module OrmTableTest =
     test {
       let db = testDb ()
       let person = Person(Name = "Miku", Age = 16L)
-      let persons = db.Table<Person>()
+      let persons = db.Persons
       persons.Insert(person)
       do! person.Id |> assertEquals 0L
     }
 
   let seedDb () =
     let db = testDb ()
-    let persons = db.Table<Person>()
+    let persons = db.Persons
     persons.Insert(Person(Name = "Miku", Age = 16L))
     persons.Insert(Person(Name = "Yukari", Age = 18L))
     db
@@ -26,7 +26,7 @@ module OrmTableTest =
   let allItemsTest =
     test {
       let db = seedDb ()
-      let persons = db.Table<Person>()
+      let persons = db.Persons
       do! persons.AllItems
         |> Seq.toArray
         |> Array.map (fun person -> person.Name)
@@ -36,7 +36,7 @@ module OrmTableTest =
   let removeTest =
     test {
       let db = seedDb ()
-      let persons = db.Table<Person>()
+      let persons = db.Persons
       persons.Remove(0L)
       do! persons.Items
         |> Seq.map (fun person -> person.Name)

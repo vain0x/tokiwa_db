@@ -13,39 +13,51 @@ module OrmDatabaseTest =
       (typeof<Song>, TableSchema.ofModel typeof<Song>)
     ]
 
-  let testDb () = new OrmDatabase(new MemoryDatabase("test_db"), schemas)
+  let testDb () =
+    let db      = new OrmDatabase(new MemoryDatabase("test_db"), schemas)
+    in db.CreateContext<TestDbContext>()
 
   let createTest =
     test {
       let db = testDb ()
-      do! db.Name |> assertEquals "test_db"
+      do! db.Database.Name |> assertEquals "test_db"
     }
 
   let tableTest =
     test {
       let db = testDb ()
-      do! (db.Table<Person> ()).Name |> assertEquals "Person"
-      let! _ = trap { it (db.Table<IModel>()) }
+      do! db.Persons.Name |> assertEquals "Person"
       return ()
     }
+
+  type AnotherDbContext =
+    {
+      Database          : Database
+      Persons           : Table<Person>
+    }
+
+  let anotherSchemas = [schemas |> List.head]
 
   let reopenTest =
     test {
       let implDb = new MemoryDatabase("test_db")
       do! test {
         use db = new OrmDatabase(implDb, schemas)
-        db.Table<Person>().Insert(Person(Name = "Miku", Age = 16L))
+        let context = db.CreateContext<TestDbContext>()
+        context.Persons.Insert(Person(Name = "Miku", Age = 16L))
         return ()
       }
       // We can reopen the database with the same models.
       do! test {
         use db = new OrmDatabase(implDb, schemas)
-        do! (db.Table<Person>()).CountAllRecords |> assertEquals 1L
+        let context = db.CreateContext<TestDbContext>()
+        do! context.Persons.CountAllRecords |> assertEquals 1L
       }
       // Opening with different models, all tables are dropped.
-      let anotherSchemas = [schemas |> List.head]
-      use db = new OrmDatabase(implDb, anotherSchemas)
-      do! (db.Table<Person>()).CountAllRecords |> assertEquals 0L
-      let! _ = trap { it (db.Table<Song>()) }
-      return ()
+      do! test {
+        use db = new OrmDatabase(implDb, anotherSchemas)
+        let context = db.CreateContext<AnotherDbContext>()
+        do! context.Persons.CountAllRecords |> assertEquals 0L
+        return ()
+      }
     }
