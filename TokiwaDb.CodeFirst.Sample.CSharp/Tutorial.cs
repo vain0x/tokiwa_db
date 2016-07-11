@@ -160,13 +160,11 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         public TutorialDbContext CreateSampleDatabase()
         {
             var db = OpenDatabase();
-            var persons = db.Persons;
-            persons.Insert(new Person() { Name = "Miku", Age = 16L });
-            persons.Insert(new Person() { Name = "Yukari", Age = 18L });
+            db.Persons.Insert(new Person() { Name = "Miku", Age = 16L });
+            db.Persons.Insert(new Person() { Name = "Yukari", Age = 18L });
 
-            var songs = db.Songs;
-            songs.Insert(new Song() { Title = "Rollin' Girl", VocalName = "Miku" });
-            songs.Insert(new Song() { Title = "Sayonara Chainsaw", VocalName = "Yukari" });
+            db.Songs.Insert(new Song() { Title = "Rollin' Girl", VocalName = "Miku" });
+            db.Songs.Insert(new Song() { Title = "Sayonara Chainsaw", VocalName = "Yukari" });
             return db;
         }
 
@@ -175,11 +173,9 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Persons;
-
                 // Table<M>.Item プロパティの getter (インデクサー) は、与えられた ID を持つレコードを取得します。
                 // The getter of Table<M>.Item property (indexer) fetches the record with the given id.
-                var miku = persons[0L];
+                var miku = db.Persons[0L];
                 Assert.AreEqual("Miku", miku.Name);
             }
         }
@@ -189,14 +185,11 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Persons;
-                var songs = db.Songs;
-
                 // Table<M>.Items は削除されていないすべてのインスタンスを IEnumerable<M> として返します。
                 // このシーケンスは、レコードの読み込みとインスタンスの生成を必要に応じて行います。
                 // Table<M>.Items returns all "live" instances as an IEnumerable<M>.
                 // The sequence reads and constructs model instances on demand.
-                IEnumerable<Person> items = persons.Items;
+                IEnumerable<Person> items = db.Persons.Items;
 
                 // LINQ to Object が使用できます。
                 // You can use "LINQ to Object".
@@ -205,8 +198,8 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // クエリー式は、複雑なクエリーを書くときの助けになります。
                 // Query expressions help you to write complex queries.
                 var queryResult =
-                    from person in persons.Items
-                    join song in songs.Items on person.Name equals song.VocalName
+                    from person in db.Persons.Items
+                    join song in db.Songs.Items on person.Name equals song.VocalName
                     where person.Age >= 18L
                     select new { Name = person.Name, Title = song.Title, Age = person.Age };
                 Assert.AreEqual(1, queryResult.Count());
@@ -219,8 +212,6 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Persons;
-
                 // 後で「現時点のデータベース」を参照するために、今のリビジョン番号を記録しておきます。
                 // Save the current revision number of the database
                 // to access to the database with the current state later.
@@ -228,13 +219,13 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
 
                 // Remove メソッドは、指定された Id を持つレコードをテーブルから除去します。
                 // Remove method removes the record with the given Id from the table.
-                var miku = persons.Items.First();
+                var miku = db.Persons.Items.First();
                 Assert.AreEqual("Miku", miku.Name);
-                persons.Remove(miku.Id);
+                db.Persons.Remove(miku.Id);
 
                 // 現在の Person テーブルには、Miku という名前のデータがなくなっていることになります。
                 // The Person table no longer contains Miku.
-                Assert.IsFalse(persons.Items.Any(p => p.Name == "Miku"));
+                Assert.IsFalse(db.Persons.Items.Any(p => p.Name == "Miku"));
 
                 // しかし、Remove メソッドは論理削除を行うだけです。
                 // AllItems と savedRevisionId を使うことで、Miku のデータを再び得ることができます。
@@ -244,7 +235,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // You can get Miku again by using AllItems and savedRevisionId.
                 // AllItems returns all instances in the table including removed ones.
                 // Each of those is valid at the revision t if and only if IsLiveAt(t) returns true.
-                var items = persons.AllItems.Where(p => p.IsLiveAt(savedRevisionId));
+                var items = db.Persons.AllItems.Where(p => p.IsLiveAt(savedRevisionId));
                 Assert.AreEqual(miku.ToString(), items.First().ToString());
             }
         }
@@ -254,8 +245,6 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Persons;
-
                 // Database.Transaction はトランザクションオブジェクトを返します。
                 // これはデータベースごとに一意なオブジェクトです。
                 // 始め、トランザクションは開始されていないので、前述のとおりすべての操作 (Insert, Remove) は即座に反映されます。
@@ -277,19 +266,19 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                     // Do operations for example...
                     {
                         var rin = new Person() { Name = "Rin", Age = 14L };
-                        persons.Insert(rin);
+                        db.Persons.Insert(rin);
                         Assert.AreEqual(2L, rin.Id);
 
-                        var firstPerson = persons.Items.First();
-                        persons.Remove(firstPerson.Id);
+                        var firstPerson = db.Persons.Items.First();
+                        db.Persons.Remove(firstPerson.Id);
 
                         // トランザクション中の操作は、すぐには反映されません。
                         // Operations during a transaction don't affect immediately.
 
                         // 挿入がまだ行われていないこと (Not inserted yet.)
-                        Assert.IsFalse(persons.Items.Any(p => p.Id == rin.Id));
+                        Assert.IsFalse(db.Persons.Items.Any(p => p.Id == rin.Id));
                         // 除去がまだ行われていないこと (Not removed yet.)
-                        Assert.IsTrue(persons.Items.Any(p => p.Id == firstPerson.Id));
+                        Assert.IsTrue(db.Persons.Items.Any(p => p.Id == firstPerson.Id));
                     }
 
                     // Transaction.Commit は現在のトランザクションを終了させます。
