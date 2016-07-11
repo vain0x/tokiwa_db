@@ -244,10 +244,16 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                         persons.Insert(rin);
                         Assert.AreEqual(2L, rin.Id);
 
-                        persons.Remove(persons.Items.First().Id);
+                        var firstPerson = persons.Items.First();
+                        persons.Remove(firstPerson.Id);
 
                         // トランザクション中の操作は、すぐには反映されません。
                         // Operations during a transaction don't affect immediately.
+
+                        // 挿入がまだ行われていないこと (Not inserted yet.)
+                        Assert.IsFalse(persons.Items.Any(p => p.Id == rin.Id));
+                        // 除去がまだ行われていないこと (Not removed yet.)
+                        Assert.IsTrue(persons.Items.Any(p => p.Id == firstPerson.Id));
                     }
 
                     // Transaction.Commit は現在のトランザクションを終了させます。
