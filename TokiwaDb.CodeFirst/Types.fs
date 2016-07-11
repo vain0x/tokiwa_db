@@ -45,5 +45,8 @@ type [<AbstractClass>] Table<'m when 'm :> IModel>() =
   abstract member Insert: 'm -> unit
   abstract member Remove: RecordId -> unit
 
+type Transaction =
+  TokiwaDb.Core.Types.Transaction
+
 type [<AbstractClass>] Database() =
   inherit BaseDatabase()
