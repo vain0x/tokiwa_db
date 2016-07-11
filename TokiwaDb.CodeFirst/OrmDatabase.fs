@@ -51,8 +51,8 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
       in Activator.CreateInstance(tableType, [| implTable :> obj |])
     | (false, _) -> ArgumentException() |> raise
 
-  member this.FindTable(modelType) =
-    _tableFromType modelType
+  member this.CreateContext<'c>() =
+    DbContext.construct<'c> this _tableFromType
 
   override this.Dispose() =
     _impl.Dispose()

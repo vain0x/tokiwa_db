@@ -32,7 +32,7 @@ type DbConfig<'c>() =
 
   let _open implDb =
     let db      = _createDatabase implDb
-    in DbContext.construct<'c> db (fun typ -> db.FindTable(typ))
+    in db.CreateContext<'c>()
     
   member this.Add<'m when 'm :> IModel>([<ParamArray>] itss: IIncrementalTableSchema []) =
     _add typeof<'m> itss
