@@ -59,8 +59,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Fake.fs" />
     <Compile Include="ModelTest.fs" />
     <Compile Include="TableSchemaTest.fs" />
+    <Compile Include="DbContextTest.fs" />
     <Compile Include="OrmDatabaseTest.fs" />
     <Compile Include="OrmTableTest.fs" />
     <Compile Include="DbConfigTest.fs" />

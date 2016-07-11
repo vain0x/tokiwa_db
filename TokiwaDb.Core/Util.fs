@@ -16,6 +16,11 @@ module Option =
     | Some x -> x
     | None -> x
 
+  let getOrElse (f: unit -> 'x): option<'x> -> 'x =
+    function
+    | Some x -> x
+    | None -> f ()
+
   let ofPair =
     function
     | (true, x) -> Some x
@@ -76,6 +81,15 @@ module IDictionary =
     match dict.TryGetValue(key) with
     | (true, value)     -> Some value
     | (false, _)        -> None
+
+module Dictionary =
+  open System.Collections.Generic
+
+  let ofSeq (kvs: seq<'k * 'v>): Dictionary<'k, 'v> =
+    let dict = Dictionary<'k, 'v>()
+    for (k, v) in kvs do
+      dict.Add(k, v)
+    dict
 
 module Map =
   let length (map: Map<_, _>) =

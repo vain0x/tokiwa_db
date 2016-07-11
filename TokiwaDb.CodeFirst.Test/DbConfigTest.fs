@@ -9,16 +9,8 @@ open TokiwaDb.CodeFirst.Detail
 module DbConfigTest =
   let normalTest =
     test {
-      let dbConfig = DbConfig()
-      dbConfig.AddTable<Person>(UniqueIndex.Of<Person>([| "Name"; "Age" |]))
+      let dbConfig = DbConfig<TestDbContext>()
+      dbConfig.Add<Person>(UniqueIndex.Of<Person>([| "Name"; "Age" |]))
       dbConfig.OpenMemory("") |> ignore
-      return ()
-    }
-
-  let addTableFailureTest =
-    test {
-      let dbConfig = DbConfig()
-      dbConfig.AddTable<Person>()
-      let! e = trap { it (dbConfig.AddTable<Person>()) }
       return ()
     }

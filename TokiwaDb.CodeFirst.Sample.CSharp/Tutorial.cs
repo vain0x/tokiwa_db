@@ -42,29 +42,65 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         public string VocalName { get; set; }
     }
 
+    // 加えて、「データベース文脈クラス」と呼ばれるクラスが1つ必要になります。
+    // これは以下の規約に従う必要があります:
+    //   - Database という名前の TokiwaDb.CodeFirst.Database 型のプロパティを持つ。
+    //   - 各モデルクラス M につき、型 Table<M> のプロパティを持つ。
+    //   - Database と各モデルクラスからなる1つのコンストラクターを持つ。
+    // 規約に違反している場合は、実行時に例外が投げられます。
+    // メモ: F# では、レコード型を使うことで、記述の冗長さを軽減することが可能です。
+    // Additionally you also need to define a "database context class which meets the following convention:
+    //   - it has a property named "Database" of TokiwaDb.CodeFirst.Database;
+    //   - it has, for each model class M, a property of Table<M>; and
+    //   - it has a constructor which takes a Database and model classes.
+    // Otherwise, a runtime exception will be thrown.
+    // Note: Record types prevent this redudancy of code in F#.
+    public class TutorialDbContext
+        : IDisposable
+    {
+        public Database Database { get; private set; }
+        public Table<Person> Persons { get; private set; }
+        public Table<Song> Songs { get; private set; }
+
+        public TutorialDbContext(Database db, Table<Person> persons, Table<Song> songs)
+        {
+            Database = db;
+            Persons = persons;
+            Songs = songs;
+        }
+
+        // 規約と無関係な定義が含まれていてもかまいません。
+        // It's okay to add other definitions unrelated to the convention.
+        public long CurrentRevisionId
+        {
+            get { return Database.CurrentRevisionId; }
+        }
+
+        // Database 型は IDisposable を実装しています。
+        // Database implements IDisposable. (STUB)
+        void IDisposable.Dispose()
+        {
+            Database.Dispose();
+        }
+    }
+
     //-------------------------------------------
 
     [TestClass]
     public class Tutorial
     {
-        public Database OpenDatabase()
+        public TutorialDbContext OpenDatabase()
         {
-            // データベースを作成したり、データベースに接続したりするには、DbConfig を使用します。以下にその手順を説明します。
+            // データベースを作成したり、データベースに接続したりするには、DbConfig を使用します。
+            // 以下にその手順を説明します。
             // To connect or create a database, use DbConfig. Like this:
-            var dbConfig = new DbConfig();
-
-            // モデルクラスをデータベースに登録します。
-            // ここでモデルクラスの登録を忘れると、それに対応するテーブルにアクセスしたときに例外が投げられてしまいます。
-            // Register model classes to the database.
-            // Don't forget to enumerate all of your model classes here;
-            // or an exception will be thrown when accessing to any of missing tables.
-            dbConfig.AddTable<Song>();
+            var dbConfig = new DbConfig<TutorialDbContext>();
 
             // 一意性制約が使用できます。
             // メモ: 実際にはハッシュ表の索引が作られますが、それを使用する手段は未実装です。
             // Unique constraints are available.
             // Note: Actually a hashtable index is created for each unique contraints, you can't use it yet.
-            dbConfig.AddTable<Person>(UniqueIndex.Of<Person>(p => p.Name));
+            dbConfig.Add<Person>(UniqueIndex.Of<Person>(p => p.Name));
 
             // そして、OpenMemory メソッドを呼び出して、インメモリーのデータベースを生成します。
             // Then invoke OpenMemory to create an in-memory database.
@@ -87,13 +123,13 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             // データベースを作成、あるいは接続します。
             // Open (connect) or create the database.
-            using (Database db = OpenDatabase())
+            using (TutorialDbContext db = OpenDatabase())
             {
-                // テーブルにアクセスするには、Database.Table<ModelClass> メソッドを使います。
-                // 返されるオブジェクトが、ModelClass に対応するテーブルにアクセスする手段を提供します。
-                // To access to tables, use Database.Table<ModelClass> method.
-                // The returned object provides the way to access to the corresponding table to ModelClass.
-                Table<Person> persons = db.Table<Person>();
+                // テーブルにアクセスするには、単にデータベース文脈クラスのプロパティを使用します。
+                // プロパティが返す Table<M> 型のオブジェクトが、モデルクラス M に対応するテーブルにアクセスする手段を提供します。
+                // To access to tables, just use properties of your database context class.
+                // The returned object of Table<M> provides the way to access to the corresponding table to the model class M.
+                Table<Person> persons = db.Persons;
 
                 // Insert メソッドは、モデルクラスのインスタンスをレコードとしてテーブルに挿入するメソッドです。
                 // トランザクションの外側では、この処理は即座に反映されます。
@@ -121,14 +157,14 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
 
         // 後のサンプルのため、サンプルデータを含むデータベースを作成する関数を定義しておきます。
         // For the later samples, we define a helper function which creates a database with sample data.
-        public Database CreateSampleDatabase()
+        public TutorialDbContext CreateSampleDatabase()
         {
             var db = OpenDatabase();
-            var persons = db.Table<Person>();
+            var persons = db.Persons;
             persons.Insert(new Person() { Name = "Miku", Age = 16L });
             persons.Insert(new Person() { Name = "Yukari", Age = 18L });
 
-            var songs = db.Table<Song>();
+            var songs = db.Songs;
             songs.Insert(new Song() { Title = "Rollin' Girl", VocalName = "Miku" });
             songs.Insert(new Song() { Title = "Sayonara Chainsaw", VocalName = "Yukari" });
             return db;
@@ -139,7 +175,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Table<Person>();
+                var persons = db.Persons;
 
                 // Table<M>.Item プロパティの getter (インデクサー) は、与えられた ID を持つレコードを取得します。
                 // The getter of Table<M>.Item property (indexer) fetches the record with the given id.
@@ -153,8 +189,8 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Table<Person>();
-                var songs = db.Table<Song>();
+                var persons = db.Persons;
+                var songs = db.Songs;
 
                 // Table<M>.Items は削除されていないすべてのインスタンスを IEnumerable<M> として返します。
                 // このシーケンスは、レコードの読み込みとインスタンスの生成を必要に応じて行います。
@@ -183,12 +219,12 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Table<Person>();
+                var persons = db.Persons;
 
                 // 後で「現時点のデータベース」を参照するために、今のリビジョン番号を記録しておきます。
                 // Save the current revision number of the database
                 // to access to the database with the current state later.
-                var savedRevisionId = db.CurrentRevisionId;
+                var savedRevisionId = db.Database.CurrentRevisionId;
 
                 // Remove メソッドは、指定された Id を持つレコードをテーブルから除去します。
                 // Remove method removes the record with the given Id from the table.
@@ -218,7 +254,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         {
             using (var db = CreateSampleDatabase())
             {
-                var persons = db.Table<Person>();
+                var persons = db.Persons;
 
                 // Database.Transaction はトランザクションオブジェクトを返します。
                 // これはデータベースごとに一意なオブジェクトです。
@@ -227,7 +263,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // It's singleton for each database.
                 // At first no transactions are beginning,
                 // so all operations (Insert, Remove) affects immediately as above.
-                var transaction = db.Transaction;
+                var transaction = db.Database.Transaction;
 
                 try
                 {
