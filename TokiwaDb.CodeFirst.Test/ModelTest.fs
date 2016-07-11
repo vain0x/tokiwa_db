@@ -56,3 +56,17 @@ module ModelTest =
       do! person.Name |> assertEquals "Miku"
       do! person.Age |> assertEquals 16L
     }
+
+[<AutoOpen>]
+module ModelsForTest =
+  type Person() =
+    inherit Model()
+
+    member val Name = "" with get, set
+    member val Age = 0L with get, set
+
+  type Song() =
+    inherit Model()
+
+    member val Name = "" with get, set
+    member val Vocal = "" with get, set

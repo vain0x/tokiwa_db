@@ -8,8 +8,6 @@ open TokiwaDb.CodeFirst
 open TokiwaDb.CodeFirst.Detail
 
 module IndexSchemaTest =
-  type Person = ModelTest.Person
-
   let fieldIndexesFromNamesTest =
     test {
       do! IndexSchema.fieldIndexesFromNames typeof<Person> [| "Name"; "Age" |]
@@ -29,8 +27,6 @@ module IndexSchemaTest =
     }
 
 module UniqueIndexTest =
-  type Person = ModelTest.Person
-
   let ofNamesTest =
     test {
       do! UniqueIndex.Of<Person>([| "Name"; "Age" |]).FieldIndexes
@@ -38,8 +34,6 @@ module UniqueIndexTest =
     }
 
 module TableSchemaTest =
-  type Person = ModelTest.Person
-
   let ofModelTest =
     test {
       let expected =
