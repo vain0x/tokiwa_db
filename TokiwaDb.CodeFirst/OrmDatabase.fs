@@ -65,6 +65,3 @@ type OrmDatabase(_impl: ImplDatabase, _tableSchemas: seq<Type * TableSchema>) =
 
   override this.Transaction =
     _impl.Transaction
-
-  override this.Table<'m when 'm :> IModel>() =
-    _tableFromType typeof<'m> :?> Table<'m>

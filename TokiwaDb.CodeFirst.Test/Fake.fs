@@ -24,5 +24,3 @@ type EmptyDatabase() =
   override this.Name                            = "always_empty_database"
   override this.CurrentRevisionId               = 0L
   override this.Transaction                     = NullTransaction.Instance
-  override this.Table<'m when 'm :> IModel>()   =
-    EmptyTable<'m>() :> Table<'m>

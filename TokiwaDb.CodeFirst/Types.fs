@@ -47,5 +47,3 @@ type [<AbstractClass>] Table<'m when 'm :> IModel>() =
 
 type [<AbstractClass>] Database() =
   inherit BaseDatabase()
-
-  abstract member Table<'m when 'm :> IModel> : unit -> Table<'m>
