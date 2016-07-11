@@ -7,22 +7,23 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 // Here we describe how to use Tokiwa DB in C#.
 
 // 初めに、 TokiwaDb.Core.dll と TokiwaDb.CodeFirst.dll への参照をプロジェクトに追加する必要があります。
-// First of all you need to add references to TokiwaDb.Core.dll and TokiwaDb.CodeFirst.dll.
+// First of all, you need to add references to TokiwaDb.Core.dll and TokiwaDb.CodeFirst.dll.
 
 namespace TokiwaDb.CodeFirst.Sample.CSharp
 {
-    // データベースを作成するために、 TokiwaDb.CodeFirst.Model クラスを継承した「モデル」クラスを定義します。これらのインスタンスはレコードを表現します。
-    // To create database, you must define "model" classes, inheriting TokiwaDb.CodeFirst.Model, instances of which represent records.
-    // Like this:
+    // データベースを作成するために、 TokiwaDb.CodeFirst.Model クラスを継承した「モデル」クラスを定義します。
+    // これらのインスタンスはレコードを表現します。
+    // ここでは例として、モデルクラス Person と Song を定義します。
+    // To create database, you must define "model" classes, inheriting TokiwaDb.CodeFirst.Model, whose instances represent records. For example:
     public class Person
         : Model
     {
         // モデルクラスのセッター (setter) を持つプロパティは、レコードのフィールドを表すとみなされます。
         // これらのプロパティの型は long, double, DateTime, string, byte[] のいずれかでなければなりません。
-        // メモ: byte, uint などは使えません。
+        // メモ: int, char[] などは使えません。
         // Properties with setter of model classes are considered to represent fields of a record.
         // These properties must be of long, double, DateTime, string or byte[].
-        // Note: byte, uint, etc. are NOT allowed.
+        // Note: int, char[], etc. are NOT allowed.
         public string Name { get; set; }
         public long Age { get; set; }
 
@@ -55,11 +56,14 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
             // モデルクラスをデータベースに登録します。
             // ここでモデルクラスの登録を忘れると、それに対応するテーブルにアクセスしたときに例外が投げられてしまいます。
             // Register model classes to the database.
-            // If you forget to enumerate one of your model classes here, the database will throw an exception when accessing to the missing table.
+            // Don't forget to enumerate all of your model classes here;
+            // or an exception will be thrown when accessing to any of missing tables.
             dbConfig.AddTable<Song>();
 
-            // 一意性索引が使用できます。
-            // Unique indexes are available. (STUB)
+            // 一意性制約が使用できます。
+            // メモ: 実際にはハッシュ表の索引が作られますが、それを使用する手段は未実装です。
+            // Unique constraints are available.
+            // Note: Actually a hashtable index is created for each unique contraints, you can't use it yet.
             dbConfig.AddTable<Person>(UniqueIndex.Of<Person>(p => p.Name));
 
             // そして、OpenMemory メソッドを呼び出して、インメモリーのデータベースを生成します。
@@ -68,10 +72,13 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
 
             // ディスクベースのデータベースに対しては、代わりに OpenDirectory メソッドを使用してください。
             // これは OpenMemory とは異なり、既存のデータベースを開くことができます。
-            // 重要: データベースが既存であり、しかしモデルクラスが異なっている場合、すべてのテーブルが Drop され、改めて新しいテーブルが作られます。
+            // 重要: データベースのディレクトリーがすでに存在し、しかしモデルクラスが異なっている場合、
+            //       すべてのテーブルが Drop され、改めて新しいテーブルが作られます。
             // Use OpenDirectory for disk-based one instead.
-            // Unlike OpenMemory, OpenDirectory opens the exsiting database.
-            // It's important if the database directory exists but model classes have changed, all tables are dropped and new tables are created.
+            // Unlike OpenMemory, OpenDirectory can open an exsiting database.
+            // Note: If the database directory exists but model classes have changed,
+            //       all tables are dropped and new tables are created again.
+
             //return dbConfig.OpenDirectory(new System.IO.DirectoryInfo(@"path/to/directory"));
         }
 
@@ -93,15 +100,16 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // メモ: 挿入されるインスタンスの Id プロパティは無効値 (あるいは既定値) でなければなりません。
                 // メモ: 一意性制約に違反する場合、例外が投げられます。
                 // Insert method inserts a model instance as a record to the table.
-                // Out of transactions, this effects immediately.
+                // This effects immediately out of transactions.
                 // Note: Id property of the inserted instance must be invalid (or default).
                 // Note: This may throw an exception because of uniqueness constraints.
                 var person = new Person() { Name = "Miku", Age = 16L };
                 Assert.IsTrue(person.Id < 0L);
                 persons.Insert(person);
 
-                // Insert メソッドの後、挿入されるインスタンスの Id プロパティの値が、それの Id に設定されます。これはトランザクションの中でも同様です。
-                // After the Insert method, Id property of the inserted instance is set to its Id,
+                // Insert メソッドの後、挿入されるインスタンスの Id プロパティの値が、それの Id に設定されます。
+                // これはトランザクションの中でも同様です。
+                // After the Insert method, Id property of the inserted instance is set to its Id
                 // both in or out of transactions.
                 Assert.AreEqual(0L, person.Id);
 
@@ -134,8 +142,8 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 var persons = db.Table<Person>();
                 var songs = db.Table<Song>();
 
-                // Table<M>.Items はすべての有効なインスタンスを IEnumerable<M> として返します。
-                // この列は、レコードの読み込みとインスタンスの生成を必要に応じて行います。
+                // Table<M>.Items は削除されていないすべてのインスタンスを IEnumerable<M> として返します。
+                // このシーケンスは、レコードの読み込みとインスタンスの生成を必要に応じて行います。
                 // Table<M>.Items returns all "live" instances as an IEnumerable<M>.
                 // The sequence reads and constructs model instances on demand.
                 IEnumerable<Person> items = persons.Items;
@@ -146,11 +154,13 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
 
                 // クエリー式は、複雑なクエリーを書くときの助けになります。
                 // Query expressions help you to write complex queries.
-                var table =
+                var queryResult =
                     from person in persons.Items
                     join song in songs.Items on person.Name equals song.VocalName
                     where person.Age >= 18L
                     select new { Name = person.Name, Title = song.Title, Age = person.Age };
+                Assert.AreEqual(1, queryResult.Count());
+                Assert.AreEqual(new { Name = "Yukari", Title = "Sayonara Chainsaw", Age = 18L }, queryResult.First());
             }
         }
 
@@ -161,8 +171,9 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
             {
                 var persons = db.Table<Person>();
 
-                // データベースのリビジョン番号を記録します。
-                // Save the revision number of the database.
+                // 後で「現時点のデータベース」を参照するために、今のリビジョン番号を記録しておきます。
+                // Save the current revision number of the database
+                // to access to the database with the current state later.
                 var savedRevisionId = db.CurrentRevisionId;
 
                 // Remove メソッドは、指定された Id を持つレコードをテーブルから除去します。
@@ -172,13 +183,17 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 persons.Remove(miku.Id);
 
                 // 現在の Person テーブルには、Miku という名前のデータがなくなっていることになります。
-                // Now the Person table doesn't contains Miku.
+                // The Person table no longer contains Miku.
                 Assert.IsFalse(persons.Items.Any(p => p.Name == "Miku"));
 
-                // しかし、Remove メソッドは論理削除を行うだけです。AllItems と savedRevisionId を使うことで、Miku のデータを再び得ることができます。
-                // AllItems は、削除されたものも含めて、テーブルに含まれるすべてのインスタンスを返します。これらがリビジョン t において有効かどうかは、IsLiveAt(t) の真偽値で判断します。
-                // The Remove method, however, performs logical deletion. You can get Miku again by using AllItems (and savedRevisionId).
-                // AllItems returns all instances in the table including removed ones. Those are valid at the revision t if and only if IsLiveAt(t) returns true.
+                // しかし、Remove メソッドは論理削除を行うだけです。
+                // AllItems と savedRevisionId を使うことで、Miku のデータを再び得ることができます。
+                // AllItems は、削除されたものも含めて、テーブルに含まれるすべてのインスタンスを返します。
+                // あるインスタンスがリビジョン t において有効かどうかは、IsLiveAt(t) の真偽値で判断します。
+                // The Remove method, however, performs logical deletion.
+                // You can get Miku again by using AllItems and savedRevisionId.
+                // AllItems returns all instances in the table including removed ones.
+                // Each of those is valid at the revision t if and only if IsLiveAt(t) returns true.
                 var items = persons.AllItems.Where(p => p.IsLiveAt(savedRevisionId));
                 Assert.AreEqual(miku.ToString(), items.First().ToString());
             }
@@ -196,39 +211,41 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // 始め、トランザクションは開始されていないので、前述のとおりすべての操作 (Insert, Remove) は即座に反映されます。
                 // Database.Transaction returns the transaction object.
                 // It's singleton for each database.
-                // At first no transactions are beginning, so all operations (Insert, Remove) affects immediately as above.
+                // At first no transactions are beginning,
+                // so all operations (Insert, Remove) affects immediately as above.
                 var transaction = db.Transaction;
 
                 try
                 {
                     // Transaction.Begin は新しいトランザクションを開始します。
                     // メモ: ネストされたトランザクションを開始することも可能です。
-                    // Transaction.Begin starts new transaction.
+                    // Transaction.Begin begins new transaction.
                     // Note: You can also begin nested transactions.
                     transaction.Begin();
 
                     // 例として、いろいろ操作を行います。
-                    // トランザクション中の操作は、すぐには反映されません。
-                    // Do operations...
-                    // Operations during a transaction doesn't affect immediately.
+                    // Do operations for example...
                     {
                         var rin = new Person() { Name = "Rin", Age = 14L };
                         persons.Insert(rin);
                         Assert.AreEqual(2L, rin.Id);
 
                         persons.Remove(persons.Items.First().Id);
+
+                        // トランザクション中の操作は、すぐには反映されません。
+                        // Operations during a transaction don't affect immediately.
                     }
 
                     // Transaction.Commit は現在のトランザクションを終了させます。
                     // そのトランザクション中に登録されたすべての操作は、ここで実行されます (ネストされたトランザクションでない場合)。
                     // Transaction.Commit ends the current transaction.
-                    // All operations registered during the transaction are performed now (unless the transaction is nested.)
+                    // All operations registered during the transaction are performed now unless the transaction is nested.
                     transaction.Commit();
                 }
                 catch (Exception)
                 {
                     // Transaction.Rollback も現在のトランザクションを終了させます。
-                    // ただし、トランザクション中に登録されたすべての操作は、単に破棄されます。
+                    // トランザクション中に登録されたすべての操作は破棄されます。
                     // Transaction.Rollback method also ends the current transaction.
                     // All operations registered during the transaction are just discarded.
                     transaction.Rollback();
