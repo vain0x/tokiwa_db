@@ -24,6 +24,7 @@ module DbConfigTest =
       let dbConfig = dbConfig ()
       let db = dbConfig.OpenMemory("")
       db.Persons.Insert(Person(Name = "Miku", Age = 16L))
-      let _ = trap { it (db.Persons.Insert(Person(Name = "Miku", Age = 18L))) }
+      db.Persons.Insert(Person(Name = "Miku Append", Age = 16L))
+      let! (_: exn) = trap { it (db.Persons.Insert(Person(Name = "Miku", Age = 16L))) }
       return ()
     }
