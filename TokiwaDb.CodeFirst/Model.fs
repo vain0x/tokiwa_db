@@ -23,6 +23,13 @@ module Value =
     | :? DateTime     as x -> Time x
     | _ -> raise (Exception())
 
+module ValuePointer =
+  open System
+  open System.Linq.Expressions
+
+  let rec toObj (coerce: ValuePointer -> Value) valuePointer =
+    coerce valuePointer |> Value.toObj
+
 module Model =
   let hasId (m: #IModel) =
     m.Id >= 0L
@@ -62,18 +69,20 @@ module Model =
     mappedProperties modelType
     |> Array.map (fun pi -> pi.GetValue(model) |> Value.ofObj)
 
-  /// Create an instance of model from a mortal record with "id".
-  let ofMortalRecord (modelType: Type) (record: MortalValue<Record>): IModel =
+  /// Create an instance of model from a mortal record pointer with "id".
+  let ofMortalRecordPointer (modelType: Type) coerce (rp: MortalValue<RecordPointer>): IModel =
     let m     = Activator.CreateInstance(modelType) :?> IModel
     let set propertyName value =
       modelType.GetProperty(propertyName).SetValue(m, value)
     let ()    =
-      m.Id <- record.Value |> Record.tryId |> Option.get
-      m.Birth <- record.Birth
-      m.Death <- record.Death
+      m.Id <- rp.Value |> RecordPointer.tryId |> Option.get
+      m.Birth <- rp.Birth
+      m.Death <- rp.Death
     let ()    =
       Array.zip
-        (record.Value |> Record.dropId)
+        (rp.Value |> RecordPointer.dropId)
         (mappedProperties modelType)
-      |> Array.iter (fun (value, pi) -> pi.SetValue(m, value |> Value.toObj))
+      |> Array.iter (fun (vp, pi) ->
+        pi.SetValue(m, vp |> ValuePointer.toObj coerce)
+        )
     in m

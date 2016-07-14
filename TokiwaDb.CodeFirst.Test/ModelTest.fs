@@ -1,5 +1,6 @@
 namespace TokiwaDb.CodeFirst.Test
 
+open System
 open System.Linq.Expressions
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
@@ -46,11 +47,16 @@ module ModelTest =
         |> assertEquals [| String "Miku"; Int 16L |]
     }
 
-  let ofMortalRecordTest =
+  let ofMortalRecordPointerTest =
     test {
+      let coerce =
+        function
+        | PInt x        -> Int x
+        | PString 0L    -> String "Miku"
+        | _ -> NotImplementedException() |> raise
       let person =
-        Mortal.create 0L [| Int -1L; String "Miku"; Int 16L |]
-        |> Model.ofMortalRecord typeof<Person>
+        Mortal.create 0L [| PInt -1L; PString 0L; PInt 16L |]
+        |> Model.ofMortalRecordPointer typeof<Person> coerce
         :?> Person
       do! person.Id |> assertEquals -1L
       do! person.Name |> assertEquals "Miku"
