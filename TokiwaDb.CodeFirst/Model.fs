@@ -14,21 +14,30 @@ module Value =
     | Binary x        -> x :> obj
     | Time x          -> x :> obj
 
-  let ofObj (x: obj) =
-    match x with
-    | :? int64        as x -> Int x
-    | :? float        as x -> Float x
-    | :? string       as x -> Value.String x
-    | :? array<byte>  as x -> Binary x
-    | :? DateTime     as x -> Time x
-    | _ -> raise (Exception())
+  let rec ofObj (x: obj) =
+    if x.GetType() |> Type.isGenericTypeDefOf typedefof<Lazy<_>> then
+      let valueProperty = x.GetType().GetProperty("Value")
+      in valueProperty.GetValue(x, [||]) |> ofObj
+    else
+      match x with
+      | :? int64        as x -> Int x
+      | :? float        as x -> Float x
+      | :? string       as x -> Value.String x
+      | :? array<byte>  as x -> Binary x
+      | :? DateTime     as x -> Time x
+      | _ -> failwithf "Unsupported type: %s" (x.GetType().Name)
 
 module ValuePointer =
   open System
   open System.Linq.Expressions
+  open Microsoft.FSharp.Reflection
 
-  let rec toObj (coerce: ValuePointer -> Value) valuePointer =
-    coerce valuePointer |> Value.toObj
+  let rec toObj (typ: Type) (coerce: ValuePointer -> Value) valuePointer =
+    if typ |> Type.isGenericTypeDefOf typedefof<Lazy<_>> then
+      let elementType   = typ.GetGenericArguments().[0]
+      in FSharpValue.Lazy.ofClosure elementType (fun () -> valuePointer |> toObj elementType coerce)
+    else
+      coerce valuePointer |> Value.toObj
 
 module Model =
   let hasId (m: #IModel) =
@@ -51,6 +60,7 @@ module Model =
         (typeof<int64>          , Field.int)
         (typeof<float>          , Field.float)
         (typeof<string>         , Field.string)
+        (typeof<Lazy<string>>   , Field.string)
         (typeof<DateTime>       , Field.time)
       ]
       |> dict
@@ -83,6 +93,6 @@ module Model =
         (rp.Value |> RecordPointer.dropId)
         (mappedProperties modelType)
       |> Array.iter (fun (vp, pi) ->
-        pi.SetValue(m, vp |> ValuePointer.toObj coerce)
+        pi.SetValue(m, vp |> ValuePointer.toObj pi.PropertyType coerce)
         )
     in m

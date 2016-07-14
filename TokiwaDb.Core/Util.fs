@@ -137,6 +137,14 @@ module DisposableExtensions =
     override this.Finalize() =
       (this :> IDisposable).Dispose()
 
+module FSharpValue =
+  open Microsoft.FSharp.Reflection
+  
+  module Function =
+    let ofClosure sourceType rangeType f =
+      let mappingFunctionType = typedefof<_ -> _>.MakeGenericType([| sourceType; rangeType |])
+      in FSharpValue.MakeFunction(mappingFunctionType, fun x -> f x :> obj)
+
 module Stream =
   open System
   open System.IO

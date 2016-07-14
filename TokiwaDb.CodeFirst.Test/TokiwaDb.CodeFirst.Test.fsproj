@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Fake.fs" />
+    <Compile Include="UtilTest.fs" />
     <Compile Include="ModelTest.fs" />
     <Compile Include="TableSchemaTest.fs" />
     <Compile Include="DbContextTest.fs" />
