@@ -19,6 +19,7 @@ module OrmTableTest =
     let db = testDb ()
     db.Persons.Insert(Person(Name = "Miku", Age = 16L))
     db.Persons.Insert(Person(Name = "Yukari", Age = 18L))
+    db.Songs.Insert(Song(Name = "Sayonara Chainsaw", Vocal = lazy "Yukari"))
     db
 
   let allItemsTest =
@@ -28,6 +29,14 @@ module OrmTableTest =
         |> Seq.toArray
         |> Array.map (fun person -> person.Name)
         |> assertEquals [| "Miku"; "Yukari" |]
+    }
+
+  let lazyConstructTest =
+    test {
+      let db = seedDb ()
+      let song = db.Songs.[0L]
+      do! song.Vocal.IsValueCreated |> assertEquals false
+      do! song.Vocal.Value |> assertEquals "Yukari"
     }
 
   let removeTest =

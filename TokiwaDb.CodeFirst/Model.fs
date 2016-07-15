@@ -14,14 +14,30 @@ module Value =
     | Binary x        -> x :> obj
     | Time x          -> x :> obj
 
-  let ofObj (x: obj) =
-    match x with
-    | :? int64        as x -> Int x
-    | :? float        as x -> Float x
-    | :? string       as x -> Value.String x
-    | :? array<byte>  as x -> Binary x
-    | :? DateTime     as x -> Time x
-    | _ -> raise (Exception())
+  let rec ofObj (x: obj) =
+    if x.GetType() |> Type.isGenericTypeDefOf typedefof<Lazy<_>> then
+      let valueProperty = x.GetType().GetProperty("Value")
+      in valueProperty.GetValue(x, [||]) |> ofObj
+    else
+      match x with
+      | :? int64        as x -> Int x
+      | :? float        as x -> Float x
+      | :? string       as x -> Value.String x
+      | :? array<byte>  as x -> Binary x
+      | :? DateTime     as x -> Time x
+      | _ -> failwithf "Unsupported type: %s" (x.GetType().Name)
+
+module ValuePointer =
+  open System
+  open System.Linq.Expressions
+  open Microsoft.FSharp.Reflection
+
+  let rec toObj (typ: Type) (coerce: ValuePointer -> Value) valuePointer =
+    if typ |> Type.isGenericTypeDefOf typedefof<Lazy<_>> then
+      let elementType   = typ.GetGenericArguments().[0]
+      in FSharpValue.Lazy.ofClosure elementType (fun () -> valuePointer |> toObj elementType coerce)
+    else
+      coerce valuePointer |> Value.toObj
 
 module Model =
   let hasId (m: #IModel) =
@@ -44,6 +60,7 @@ module Model =
         (typeof<int64>          , Field.int)
         (typeof<float>          , Field.float)
         (typeof<string>         , Field.string)
+        (typeof<Lazy<string>>   , Field.string)
         (typeof<DateTime>       , Field.time)
       ]
       |> dict
@@ -62,18 +79,20 @@ module Model =
     mappedProperties modelType
     |> Array.map (fun pi -> pi.GetValue(model) |> Value.ofObj)
 
-  /// Create an instance of model from a mortal record with "id".
-  let ofMortalRecord (modelType: Type) (record: MortalValue<Record>): IModel =
+  /// Create an instance of model from a mortal record pointer with "id".
+  let ofMortalRecordPointer (modelType: Type) coerce (rp: MortalValue<RecordPointer>): IModel =
     let m     = Activator.CreateInstance(modelType) :?> IModel
     let set propertyName value =
       modelType.GetProperty(propertyName).SetValue(m, value)
     let ()    =
-      m.Id <- record.Value |> Record.tryId |> Option.get
-      m.Birth <- record.Birth
-      m.Death <- record.Death
+      m.Id <- rp.Value |> RecordPointer.tryId |> Option.get
+      m.Birth <- rp.Birth
+      m.Death <- rp.Death
     let ()    =
       Array.zip
-        (record.Value |> Record.dropId)
+        (rp.Value |> RecordPointer.dropId)
         (mappedProperties modelType)
-      |> Array.iter (fun (value, pi) -> pi.SetValue(m, value |> Value.toObj))
+      |> Array.iter (fun (vp, pi) ->
+        pi.SetValue(m, vp |> ValuePointer.toObj pi.PropertyType coerce)
+        )
     in m

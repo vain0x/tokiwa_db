@@ -11,8 +11,7 @@ type OrmTable<'m when 'm :> IModel>(_impl: ImplTable) =
   let _modelType = typeof<'m>
 
   let _toModel (rp: MortalValue<RecordPointer>) =
-    rp |> MortalValue.map _impl.Database.Storage.Derefer
-    |> Model.ofMortalRecord _modelType
+    rp |> Model.ofMortalRecordPointer _modelType _impl.Database.Storage.Derefer
     :?> 'm
 
   let _item recordId =

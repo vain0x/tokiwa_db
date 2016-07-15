@@ -19,10 +19,10 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         : Model
     {
         // モデルクラスのセッター (setter) を持つプロパティは、レコードのフィールドを表すとみなされます。
-        // これらのプロパティの型は long, double, DateTime, string, byte[] のいずれかでなければなりません。
+        // これらのプロパティの型は long, double, DateTime, string, byte[], Lazy<string>, Lazy<byte[]> のいずれかでなければなりません。
         // メモ: int, char[] などは使えません。
         // Properties with setter of model classes are considered to represent fields of a record.
-        // These properties must be of long, double, DateTime, string or byte[].
+        // These properties must be of long, double, DateTime, string, byte[], Lazy<string> or Lazy<byte[]>.
         // Note: int, char[], etc. are NOT allowed.
         public string Name { get; set; }
         public long Age { get; set; }
@@ -39,7 +39,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
         : Model
     {
         public string Title { get; set; }
-        public string VocalName { get; set; }
+        public Lazy<string> VocalName { get; set; }
     }
 
     // 加えて、「データベース文脈クラス」と呼ばれるクラスが1つ必要になります。
@@ -163,8 +163,8 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
             db.Persons.Insert(new Person() { Name = "Miku", Age = 16L });
             db.Persons.Insert(new Person() { Name = "Yukari", Age = 18L });
 
-            db.Songs.Insert(new Song() { Title = "Rollin' Girl", VocalName = "Miku" });
-            db.Songs.Insert(new Song() { Title = "Sayonara Chainsaw", VocalName = "Yukari" });
+            db.Songs.Insert(new Song() { Title = "Rollin' Girl", VocalName = new Lazy<string>(() => "Miku") });
+            db.Songs.Insert(new Song() { Title = "Sayonara Chainsaw", VocalName = new Lazy<string>(() => "Yukari") });
             return db;
         }
 
@@ -199,7 +199,7 @@ namespace TokiwaDb.CodeFirst.Sample.CSharp
                 // Query expressions help you to write complex queries.
                 var queryResult =
                     from person in db.Persons.Items
-                    join song in db.Songs.Items on person.Name equals song.VocalName
+                    join song in db.Songs.Items on person.Name equals song.VocalName.Value
                     where person.Age >= 18L
                     select new { Name = person.Name, Title = song.Title, Age = person.Age };
                 Assert.AreEqual(1, queryResult.Count());
