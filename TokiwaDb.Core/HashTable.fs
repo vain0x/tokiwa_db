@@ -174,16 +174,3 @@ type MultiHashTable<'k, 'v when 'k: equality>
 
   member this.FindAll(key: 'k) =
     _base.FindAll(key)
-
-type HashTableElementSerializer<'k, 'v>
-  ( _keySerializer: FixedLengthSerializer<'k>
-  , _valueSerializer: FixedLengthSerializer<'v>
-  ) =
-  inherit 
-    FixedLengthUnionSerializer<HashTableElement<'k, 'v>>
-      ([|
-        FixedLengthTupleSerializer<'k * 'v * Hash>(
-          [| _keySerializer; _valueSerializer; Int64Serializer() |])
-        Int64Serializer()
-        Int64Serializer()
-      |])

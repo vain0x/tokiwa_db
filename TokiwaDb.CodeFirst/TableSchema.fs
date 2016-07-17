@@ -1,4 +1,5 @@
 namespace TokiwaDb.CodeFirst.Detail
+  open System
   open TokiwaDb.Core
   open TokiwaDb.CodeFirst
 
@@ -13,9 +14,9 @@ namespace TokiwaDb.CodeFirst.Detail
         { schema with Indexes = Array.append schema.Indexes [| this.Schema |] }
 
   module IndexSchema =
-    let fieldIndexesFromNames<'m when 'm :> IModel> names =
+    let fieldIndexesFromNames modelType names =
       let indexFromPropertyName =
-        Model.mappedProperties<'m> ()
+        Model.mappedProperties modelType
         |> Array.mapi (fun i prop -> (prop.Name, i + 1))
         |> Map.ofArray
       in
@@ -23,18 +24,18 @@ namespace TokiwaDb.CodeFirst.Detail
           indexFromPropertyName |> Map.tryFind name
           )
 
-    let fieldIndexesFromLambdas<'m when 'm :> IModel> lambdas =
+    let fieldIndexesFromLambdas modelType lambdas =
       lambdas
       |> Array.choose (Expression.tryMemberInfo >> Option.map (fun mi -> mi.Name))
-      |> fieldIndexesFromNames<'m>
+      |> fieldIndexesFromNames modelType
 
   module TableSchema =
     let alter (alterers: IIncrementalTableSchema []) schema =
       alterers |> Array.fold (fun schema alterer -> alterer.Alter(schema)) schema
 
-    let ofModel<'m when 'm :> IModel> () =
-      { TableSchema.empty typeof<'m>.Name with
-          Fields = Model.toFields<'m> ()
+    let ofModel (modelType: Type) =
+      { TableSchema.empty modelType.Name with
+          Fields = Model.toFields modelType
       }
 
 namespace TokiwaDb.CodeFirst
@@ -53,11 +54,11 @@ namespace TokiwaDb.CodeFirst
 
     static member Of<'m when 'm :> IModel>([<ParamArray>] names: array<string>) =
       let fieldIndexes =
-        names |> IndexSchema.fieldIndexesFromNames<'m>
+        names |> IndexSchema.fieldIndexesFromNames typeof<'m>
       in new UniqueIndex(fieldIndexes)
 
-    static member Of<'m when 'm :> IModel>([<ParamArray>] lambdas: array<Expression<Func<'m, obj>>>) =
+    static member Of([<ParamArray>] lambdas: array<Expression<Func<'m, obj>>>) =
       let fieldIndexes =
         lambdas |> Array.map (fun l -> l :> Expression)
-        |> IndexSchema.fieldIndexesFromLambdas<'m>
+        |> IndexSchema.fieldIndexesFromLambdas typeof<'m>
       in new UniqueIndex(fieldIndexes)

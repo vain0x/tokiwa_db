@@ -41,9 +41,7 @@ Incidentally "partially" means you can't *branch* versions. *Partially persisten
 常磐DBは「コードファースト」という便利な機能に対応しています。すなわち、C# や F# などの言語でコードを書くだけで、データベースの生成と構成を行うことが可能です。(Tokiwa DB supports useful *code-first* approach. That is, you can create and configure databases just by writing C#/F# code.)
 
 ## 使いかた (Usage)
-[テストケース](TokiwaDb.CodeFirst.Test)を参照。
-
-(Please see [test cases](TokiwaDb.CodeFirst.Test).)
+- [C# でのサンプル (Sample in C#)](TokiwaDb.CodeFirst.Sample.CSharp)
 
 ## ライセンス (License)
 パブリックドメイン (Public domain)

@@ -1,5 +1,10 @@
 ﻿namespace TokiwaDb.Core
 
+[<AutoOpen>]
+module Misc =
+  let fold xs f s =
+    xs |> Seq.fold (fun s x -> f x s) s
+
 module Hash =
   /// Cloned from Boost hash_combine.
   let combine seed hash =
@@ -11,10 +16,23 @@ module Option =
     | Some x -> x
     | None -> x
 
+  let getOrElse (f: unit -> 'x): option<'x> -> 'x =
+    function
+    | Some x -> x
+    | None -> f ()
+
   let ofPair =
     function
     | (true, x) -> Some x
     | (false, _) -> None
+
+  let sequence os =
+    os |> Seq.fold (fun state opt ->
+      match (state, opt) with
+      | (Some xs, Some x) -> (Some (x :: xs))
+      | _ -> None
+      ) (Some [])
+    |> Option.map List.rev
 
 module T2 =
   let map f (x0, x1) = (f x0, f x1)
@@ -53,9 +71,37 @@ module ResizeArray =
     then xs.[i] |> Some
     else None
 
+module IDictionary =
+  open System.Collections.Generic
+
+  let toPairSeq (dict: IDictionary<'k, 'v>): seq<'k * 'v> =
+    dict |> Seq.map (fun (KeyValue kv) -> kv)
+
+  let tryFind (key: 'k) (dict: IDictionary<'k, 'v>): option<'v> =
+    match dict.TryGetValue(key) with
+    | (true, value)     -> Some value
+    | (false, _)        -> None
+
+module Dictionary =
+  open System.Collections.Generic
+
+  let ofSeq (kvs: seq<'k * 'v>): Dictionary<'k, 'v> =
+    let dict = Dictionary<'k, 'v>()
+    for (k, v) in kvs do
+      dict.Add(k, v)
+    dict
+
 module Map =
   let length (map: Map<_, _>) =
     map |> Seq.length
+
+  let findOrInsert (key: 'k) (f: unit -> 'v) (map: Map<'k, 'v>) =
+    match map |> Map.tryFind key with
+    | Some value ->
+      (map, value)
+    | None ->
+      let value = f ()
+      in (map |> Map.add key value, value)
 
 module Seq =
   let tryHead (xs: seq<'x>): option<'x> =
@@ -67,6 +113,13 @@ module Seq =
     if xs |> Seq.isEmpty
     then true
     else xs |> Seq.skip 1 |> Seq.forall ((=) (xs |> Seq.head))
+
+module Type =
+  open System
+
+  let isGenericTypeDefOf genericTypeDef (typ: Type) =
+    typ.IsGenericType
+    && typ.GetGenericTypeDefinition() = genericTypeDef
 
 [<AutoOpen>]
 module DisposableExtensions =
@@ -84,6 +137,14 @@ module DisposableExtensions =
     override this.Finalize() =
       (this :> IDisposable).Dispose()
 
+module FSharpValue =
+  open Microsoft.FSharp.Reflection
+  
+  module Function =
+    let ofClosure sourceType rangeType f =
+      let mappingFunctionType = typedefof<_ -> _>.MakeGenericType([| sourceType; rangeType |])
+      in FSharpValue.MakeFunction(mappingFunctionType, fun x -> f x :> obj)
+
 module Stream =
   open System
   open System.IO
@@ -94,18 +155,23 @@ module Stream =
     let _         = stream.Read(buffer, 0, buffer.Length)
     in UTF8Encoding.UTF8.GetString(buffer)
 
+  let readBytes count (stream: Stream) =
+    let buffer    = Array.zeroCreate count
+    let _         = stream.Read(buffer, 0, count)
+    in buffer
+
+  let writeBytes data (stream: Stream) =
+    stream.Write(data, 0, data.Length)
+
   let writeString (s:string) (stream: Stream) =
     let buffer    = UTF8Encoding.UTF8.GetBytes(s)
     in stream.Write(buffer, 0, buffer.Length)
 
   let readInt64 (stream: Stream) =
-    let bytes = Array.zeroCreate 8
-    let _ = stream.Read(bytes, 0, bytes.Length)
-    in BitConverter.ToInt64(bytes, 0)
+    BitConverter.ToInt64(stream |> readBytes 8, 0)
 
   let writeInt64 (n: int64) (stream: Stream) =
-    let bytes = BitConverter.GetBytes(n)
-    in stream.Write(bytes, 0, bytes.Length)
+    stream |> writeBytes (BitConverter.GetBytes(n))
 
 module FileInfo =
   open System.IO
@@ -127,27 +193,3 @@ module FileInfo =
   let readText (file: FileInfo) =
     use streamReader = file.OpenText()
     in streamReader.ReadToEnd()
-
-module FsYaml =
-  open FsYaml
-  open FsYaml.NativeTypes
-
-  let unitDef =
-    {
-      Accept = (=) typeof<unit>
-      Construct =
-        fun _ _ _ -> () :> obj
-      Represent =
-        fun _ _ _ -> RepresentationTypes.Null None
-    }
-
-  let customTypeDefinitions =
-    [
-      unitDef
-    ]
-
-  let customLoad<'x> source =
-    source |> Yaml.loadWith<'x> customTypeDefinitions
-
-  let customDump<'x> (value: 'x) =
-    value |> Yaml.dumpWith<'x> customTypeDefinitions

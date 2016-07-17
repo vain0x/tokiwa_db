@@ -4,6 +4,8 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Text
+open TokiwaDb.Core.FsSerialize
+open TokiwaDb.Core.FsSerialize.TypeDefinitions.Custom
 open HashTableDetail
 
 [<AutoOpen>]
@@ -49,51 +51,48 @@ type SequentialStorage(_source: StreamSource) =
   member this.WriteData(data: array<byte>): StoragePointer =
     _writeData data
 
+module StreamStorageDetail =
+  type HashTableElement = HashTableElement<array<byte>, StoragePointer>
+
+open StreamStorageDetail
+
 /// A storage which stores values in stream.
 type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) =
   inherit Storage()
 
   let _source = SequentialStorage(_source)
 
+  let _readData (p: StoragePointer) =
+    _source.ReadData(p)
+
   let _hash (xs: array<byte>) = xs |> Array.hash
 
-  let _hashTableElementSerializer =
-    { new FixedLengthSerializer<HashTableElement<array<byte>, StoragePointer>>() with
-        override this.Serialize(element) =
-          let p' =
-            match element with
-            | Busy (_, p, _) -> p
-            | Empty -> -1L
-            | Removed -> -2L
-          in BitConverter.GetBytes(p')
-
-        override thisSerializer.Deserialize(data) =
-          match BitConverter.ToInt64(data, 0) with
-          | -1L -> Empty
-          | -2L -> Removed
-          | p when p >= 0L -> 
-            // TODO: Lazy loading.
-            let data = _source.ReadData(p)
-            in Busy (data, p, _hash data)
-          | _ -> failwith "unexpected"
-
-        override this.Length = 8L
-    }
-
   let _hashTable =
+    let elementTypeDefinition =
+      ofBijective
+        ((=) typeof<HashTableElement>)
+        { new Bijective<HashTableElement, int64>() with
+            override this.Convert(value) =
+              match value with
+              | Busy (_, p, _)  -> p
+              | Empty           -> -1L
+              | Removed         -> -2L
+            override this.Invert(p) =
+              match p with
+              | -1L     -> Empty
+              | -2L     -> Removed
+              | p       ->
+                assert (p >= 0L)
+                let data        = _readData p
+                in Busy(data, p, _hash data)
+        }
     let rootArray =
-      StreamArray<HashTableElement<array<byte>, StoragePointer>>
-        ( _hashTableSource
-        , _hashTableElementSerializer
-        )
+      StreamArray<HashTableElement>(_hashTableSource, [elementTypeDefinition])
     in
       HashTable<array<byte>, StoragePointer>(_hash, rootArray)
 
   let _tryFindData data =
     _hashTable.TryFind(data)
-
-  let _readData (p: StoragePointer) =
-    _source.ReadData(p)
 
   let _writeData data =
     match _tryFindData data with
@@ -108,9 +107,6 @@ type StreamSourceStorage(_source: StreamSource, _hashTableSource: StreamSource) 
 
   let _writeString (s: string) =
     UTF8Encoding.UTF8.GetBytes(s) |> _writeData
-
-  member this.HashTableElementSerializer =
-    _hashTableElementSerializer
 
   member this.TryFindData(data) =
     _tryFindData data

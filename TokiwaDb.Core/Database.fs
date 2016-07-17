@@ -2,7 +2,7 @@
 
 open System
 open System.IO
-open FsYaml
+open TokiwaDb.Core.FsSerialize.Public
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Database =
@@ -40,11 +40,13 @@ type RepositoryDatabase(_repo: Repository) as this =
     StreamSourceStorage(_storageSource, _storageHashTableSource)
 
   let _configSource =
-    _repo.Add("config.yaml")
+    _repo.Add("config")
 
   let _config =
-    _configSource.ReadString()
-    |> Yaml.tryLoad<RepositoryDatabaseConfig>
+    try
+      use stream = _configSource.OpenRead()
+      in stream |> Stream.deserialize<RepositoryDatabaseConfig> |> Some
+    with | _ -> None
 
   let _revisionServer =
     let currentRevision =
@@ -59,7 +61,11 @@ type RepositoryDatabase(_repo: Repository) as this =
       {
         CurrentRevision     = _revisionServer.Current
       }
-    in _configSource.WriteString(config |> Yaml.dump)
+    in
+      _configSource.WriteAll(fun streamSource ->
+        use stream          = streamSource.OpenReadWrite()
+        in stream |> Stream.serialize<RepositoryDatabaseConfig> config |> ignore
+        )
 
   let _tables: ResizeArray<ImplTable> =
     _tableRepo.AllSubrepositories()
@@ -82,15 +88,13 @@ type RepositoryDatabase(_repo: Repository) as this =
       table
       )
 
-  let _perform operations =
-    for operation in operations do
-      match operation with
-      | InsertRecords (tableId, records) ->
-        _tables.[int tableId].PerformInsert(records)
-      | RemoveRecords (tableId, recordIds) ->
-        _tables.[int tableId].PerformRemove(recordIds)
-      | DropTable (tableId) ->
-        _tables.[int tableId].PerformDrop()
+  let _perform (operation: Operation) =
+    for (KeyValue (tableId, records)) in operation.InsertRecords do
+      _tables.[int tableId].PerformInsert(records.ToArray())
+    for (KeyValue (tableId, recordIds)) in operation.RemoveRecords do
+      _tables.[int tableId].PerformRemove(recordIds.ToArray())
+    for tableId in operation.DropTable do
+      _tables.[int tableId].PerformDrop()
 
   let _disposable =
     new RelayDisposable(_saveConfig) :> IDisposable
@@ -119,8 +123,8 @@ type RepositoryDatabase(_repo: Repository) as this =
   override this.CreateTable(schema: TableSchema) =
     _createTable schema
 
-  override this.Perform(operations) =
-    _perform operations
+  override this.Perform(operation) =
+    _perform operation
 
 type MemoryDatabase(_name: string) =
   inherit RepositoryDatabase(MemoryRepository(_name))

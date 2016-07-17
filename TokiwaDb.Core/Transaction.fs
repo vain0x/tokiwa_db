@@ -2,26 +2,26 @@
 
 open System.Threading
 
-type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: RevisionServer) =
+type MemoryTransaction(_performImpl: Operation -> unit, _revisionServer: RevisionServer) =
   inherit ImplTransaction()
 
   let _syncRoot = new obj()
 
-  let _perform operations =
+  let _perform operation =
     lock _syncRoot (fun () ->
-      _performImpl operations
+      _performImpl operation
       _revisionServer.Increase() |> ignore
       )
 
-  let mutable _operationsStack = ([]: list<ResizeArray<Operation>>)
+  let mutable _operationsStack = ([]: list<Operation>)
 
-  let _add operation =
+  let _add update =
     lock _syncRoot (fun () ->
       match _operationsStack with
       | [] ->
-        _perform [| operation |]
-      | operations :: _ ->
-        operations.Add(operation)
+        Operation.empty |> update |> _perform
+      | operation :: stack ->
+        _operationsStack <- (operation |> update) :: stack
       )
 
   let _commit () =
@@ -29,12 +29,11 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
       match _operationsStack with
       | [] ->
         failwith "Can't commit before beginning a transaction."
-      | [operations] ->
-        operations.ToArray() |> _perform
+      | [operation] ->
+        operation |> _perform
         _operationsStack <- []
-      | operations :: (operations' :: _ as stack) ->
-        operations'.AddRange(operations)
-        _operationsStack <- stack
+      | r :: l :: stack ->
+        _operationsStack <- Operation.merge l r :: stack
       )
 
   let _rollback () =
@@ -42,7 +41,7 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
       match _operationsStack with
       | [] ->
         failwith "Can't rollback before beginning a transaction."
-      | operations :: stack ->
+      | _ :: stack ->
         _operationsStack <- stack
       )
 
@@ -50,10 +49,10 @@ type MemoryTransaction(_performImpl: array<Operation> -> unit, _revisionServer: 
     _operationsStack |> List.length
 
   override this.Operations =
-    _operationsStack |> Seq.collect id
+    _operationsStack |> List.rev :> seq<Operation>
 
   override this.Begin() =
-    _operationsStack <- ResizeArray<Operation>() :: _operationsStack
+    _operationsStack <- Operation.empty :: _operationsStack
 
   override this.Add(operation) =
     _add operation

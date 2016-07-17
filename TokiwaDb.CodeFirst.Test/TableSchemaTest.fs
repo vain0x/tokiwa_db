@@ -8,11 +8,9 @@ open TokiwaDb.CodeFirst
 open TokiwaDb.CodeFirst.Detail
 
 module IndexSchemaTest =
-  type Person = ModelTest.Person
-
   let fieldIndexesFromNamesTest =
     test {
-      do! IndexSchema.fieldIndexesFromNames<Person> [| "Name"; "Age" |]
+      do! IndexSchema.fieldIndexesFromNames typeof<Person> [| "Name"; "Age" |]
         |> assertEquals [| 1; 2 |]
     }
 
@@ -24,13 +22,11 @@ module IndexSchemaTest =
           Expression.OfFun(fun (p: Person) -> p.Age :> obj)
         |]
         |> Array.map (fun lambda -> lambda :> Expression)
-      do! IndexSchema.fieldIndexesFromLambdas<Person> lambdas
+      do! IndexSchema.fieldIndexesFromLambdas typeof<Person> lambdas
         |> assertEquals [| 1; 2 |]
     }
 
 module UniqueIndexTest =
-  type Person = ModelTest.Person
-
   let ofNamesTest =
     test {
       do! UniqueIndex.Of<Person>([| "Name"; "Age" |]).FieldIndexes
@@ -38,21 +34,19 @@ module UniqueIndexTest =
     }
 
 module TableSchemaTest =
-  type Person = ModelTest.Person
-
   let ofModelTest =
     test {
       let expected =
         { TableSchema.empty "Person" with
             Fields = [| Field.string "Name"; Field.int "Age" |]
         }
-      do! TableSchema.ofModel<Person> () |> assertEquals expected
+      do! TableSchema.ofModel typeof<Person> |> assertEquals expected
     }
 
   let alterTest =
     test {
       let uniqueIndex = UniqueIndex.Of<Person>([| "Name"; "Age" |])
-      let schema = TableSchema.ofModel<Person> ()
+      let schema = TableSchema.ofModel typeof<Person>
       do! schema |> TableSchema.alter [| uniqueIndex |]
         |> assertEquals { schema with Indexes = [| HashTableIndexSchema [| 1; 2 |] |] }
     }

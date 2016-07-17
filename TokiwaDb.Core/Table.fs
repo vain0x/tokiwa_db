@@ -3,13 +3,14 @@
 open System
 open System.IO
 open Chessie.ErrorHandling
+open TokiwaDb.Core.FsSerialize.Public
 
 type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
   inherit ImplTable()
 
   let mutable _schema =
-    (_repo.TryFind(".schema") |> Option.get).ReadString()
-    |> FsYaml.customLoad<TableSchema>
+    use stream  = (_repo.TryFind(".schema") |> Option.get).OpenRead()
+    in stream |> Stream.deserialize<TableSchema>
 
   let _indexes =
     _schema.Indexes |> Array.mapi (fun i indexSchema ->
@@ -44,21 +45,11 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     let alreadyDropped () =
       _isAliveAt _db.CurrentRevisionId |> not
     let willBeDropped () =
-      (_transaction ()).Operations |> Seq.exists (fun operation ->
-        match operation with
-        | DropTable (tableId) when tableId = _id -> true
-        |_ -> false
-        )
+      _transaction () |> ImplTransaction.drops _id
     in not (alreadyDropped ()) && not (willBeDropped ())
 
   let _insertedRecordsInTransaction () =
-    (_transaction ()).Operations |> Seq.collect (fun operation ->
-      seq {
-        match operation with
-        | InsertRecords (tableId, records) when tableId = _id ->
-          yield! records
-        | _ -> ()
-      })
+    _transaction () |> ImplTransaction.insertedRecordsTo _id
 
   let _length () =
     let countScheduledInserts =
@@ -190,7 +181,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
             )
           |> Array.unzip
         let () =
-          (_transaction ()).Add(InsertRecords (_id, recordPointers))
+          (_transaction ()).Add(Operation.insertRecords _id recordPointers)
         return recordIds
       })
 
@@ -226,7 +217,7 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
         |]
         |> Trial.collect
       let () =
-        (_transaction ()).Add(RemoveRecords (_id, recordIds |> List.toArray))
+        (_transaction ()).Add(Operation.removeRecords _id (recordIds |> List.toArray))
       return ()
     }
 
@@ -236,12 +227,15 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
       _schema <- { _schema with LifeSpan = _schema.LifeSpan |> MortalValue.kill revisionId }
     let ()              =
       (_repo.TryFind(".schema") |> Option.get)
-        .WriteString(_schema |> FsYaml.customDump)
+        .WriteAll(fun streamSource ->
+          use stream    = streamSource.OpenReadWrite()
+          in stream |> Stream.serialize<TableSchema> _schema |> ignore
+          )
     in ()
 
   let _drop () =
     if _canBeModified () then
-      (_transaction ()).Add(DropTable _id)
+      (_transaction ()).Add(Operation.dropTable _id)
 
   static member Create
     ( db: ImplDatabase
@@ -254,7 +248,11 @@ type RepositoryTable(_db: ImplDatabase, _id: TableId, _repo: Repository) =
     let schema          = { schema with LifeSpan = schema.LifeSpan |> MortalValue.beBorn revisionId }
     /// Create schema file.
     let schemaSource    = repo.Add(".schema")
-    let ()              = schemaSource.WriteString(schema |> FsYaml.customDump)
+    let ()              =
+      schemaSource.WriteAll(fun streamSource ->
+        use stream      = streamSource.OpenReadWrite()
+        in stream |> Stream.serialize<TableSchema> schema |> ignore
+        )
     /// Create index files.
     let indexes         =
       schema.Indexes |> Array.mapi (fun i indexSchema ->
