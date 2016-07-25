@@ -42,6 +42,7 @@ Incidentally "partially" means you can't *branch* versions. *Partially persisten
 
 ## 使いかた (Usage)
 - [C# でのサンプル (Sample in C#)](TokiwaDb.CodeFirst.Sample.CSharp)
+- [VB.NET でのサンプル (Sample in VB.NET)](TokiwaDb.CodeFirst.Sample.VisualBasic)
 
 ## ライセンス (License)
 パブリックドメイン (Public domain)
