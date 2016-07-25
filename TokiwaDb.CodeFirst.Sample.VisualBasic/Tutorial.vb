@@ -1,9 +1,4 @@
-﻿Imports System
-Imports System.Collections.Generic
-Imports System.Linq
-Imports Microsoft.VisualStudio.TestTools.UnitTesting
-
-' チュートリアル
+﻿' チュートリアル
 ' ===============================================
 
 ' 常磐DBを VisualBasic.NET から使用する方法の概略を説明します。
