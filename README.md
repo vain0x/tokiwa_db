@@ -48,4 +48,4 @@ Incidentally "partially" means you can't *branch* versions. *Partially persisten
 - [NuGet package: TokiwaDb](https://www.nuget.org/packages/TokiwaDb).
 
 ## ライセンス (License)
-パブリックドメイン (Public domain)
+[パブリックドメイン (Public domain)](http://choosealicense.com/licenses/unlicense/)
