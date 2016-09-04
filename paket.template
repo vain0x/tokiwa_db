@@ -1,0 +1,12 @@
+type file
+title TokiwaDb
+id TokiwaDb
+version 0.3.0.2
+authors vain0
+projectUrl https://github.com/vain0/tokiwa_db
+description
+    Partially persistent relational database for .NET
+files
+    TokiwaDb.Core/bin/Release/TokiwaDb.Core.dll ==> lib
+    TokiwaDb.CodeFirst/bin/Release/TokiwaDb.CodeFirst.dll ==> lib
+licenseUrl http://choosealicense.com/licenses/unlicense/
